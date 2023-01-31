@@ -1,0 +1,140 @@
+---
+title: "Calculate replicate correlations"
+author: "Florian Wuennemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(tidyverse)
+library(corrplot)
+library(plotly)
+library(GGally)
+library(rstatix)
+library(here)
+```
+
+# Load data
+
+The sgRNA count matrix is available from NCBI GEO:
+https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE165923
+
+```{r}
+sgrna_counts <- fread(here("./data/GSE165923_teloHAEC_Endoscreen_sgRNA_counts.tsv.gz"))
+sgrna_counts_long <- sgrna_counts %>%
+  pivot_longer(cols = 3:(ncol(sgrna_counts)-2))
+
+# get labels for sgRNA and loci
+sgrna_labels <- sgrna_counts[,1:2]
+```
+
+
+# Analyze data
+
+## Organize labels
+
+```{r}
+samples <- colnames(sgrna_counts)
+samples <- samples[5:length(samples)-2]
+samples_df <- data.frame("sample_ID" = samples)
+samples_df <- samples_df %>%
+  separate(sample_ID, into = c("fixed","Cas_modality","FACS_pheno","FACS_fraction","replicate"), sep = "_") %>%
+  mutate("experiment" = paste(Cas_modality,FACS_pheno,sep="_"))
+
+samples_df <- samples_df %>%
+  mutate("colID" = 1:nrow(samples_df))
+```
+
+
+## Iterate over each experiment and calculate correlation
+
+```{r}
+all_experiments <- unique(samples_df$experiment)
+#all_experiments_corr <- list()
+all_experiments_corr <- data.frame()
+
+# all_experiments <- "CRISPRi_ROS"
+for(exp in all_experiments){
+  print(exp)
+  sample_indices <- subset(samples_df,experiment == exp)
+  ind_top <- subset(sample_indices,FACS_fraction == "Top")$colID+2
+  ind_bot <- subset(sample_indices,FACS_fraction == "Bottom")$colID+2
+  sgrna_counts_top <- sgrna_counts[,..ind_top]
+  sgrna_counts_top <- sweep(sgrna_counts_top, 2, colSums(sgrna_counts_top), FUN="/")
+  colnames(sgrna_counts_top) <- gsub(paste("teloHAEC",exp,"Top","",sep="_"),"",colnames(sgrna_counts_top))
+  sgrna_counts_top <- sgrna_counts_top %>% 
+    select(sort(current_vars()))
+  
+  sgrna_counts_bot <- sgrna_counts[,..ind_bot]
+  sgrna_counts_bot <- sweep(sgrna_counts_bot, 2, colSums(sgrna_counts_bot), FUN="/")
+  colnames(sgrna_counts_bot) <- gsub(paste("teloHAEC",exp,"Bottom","",sep="_"),"",colnames(sgrna_counts_bot))
+  sgrna_counts_bot <- sgrna_counts_bot %>% 
+    select(sort(current_vars()))
+  
+  sgrna_counts_top_merge <- sgrna_counts_top 
+  colnames(sgrna_counts_top_merge) <- paste("Top",colnames(sgrna_counts_top_merge),sep="_")
+  sgrna_counts_bot_merge <- sgrna_counts_bot 
+  colnames(sgrna_counts_bot_merge) <- paste("Bottom",colnames(sgrna_counts_bot),sep="_")
+  top_and_bottom <- cbind(sgrna_counts_top_merge,sgrna_counts_bot_merge)
+  
+  top_v_bottom <- sgrna_counts_top / sgrna_counts_bot
+  
+  top_v_bottom <- top_v_bottom %>%
+    drop_na()
+  
+  top_v_bottom <- top_v_bottom[!is.infinite(rowSums(top_v_bottom)),]
+  corr_topvbot <- cor(top_v_bottom,method = "spearman")
+  corr_topvbot <- top_v_bottom %>% cor_mat(method = "spearman") %>% cor_gather()
+  corr_topvbot$exp <- exp
+  corr_topvbot <- corr_topvbot %>%
+    mutate("varcomb" = paste(pmin(var1,var2), pmax(var1,var2),sep = "_")) %>%
+    mutate("cor" = cor,
+           "p_value" = p) %>%
+    select(-var1,-var2) %>%
+    distinct() %>%
+    separate(varcomb,into = c("sample1","sample2"), sep ="_") %>%
+    separate(exp, into = c("Cas_modality","FACS_phenotype"), sep = "_") %>%
+    select(Cas_modality,FACS_phenotype,sample1,sample2,cor,p_value)
+  
+  all_experiments_corr <- rbind(all_experiments_corr,corr_topvbot)
+}
+
+## Exclude correlations with oneself
+all_experiments_corr <- all_experiments_corr %>%
+  subset(sample1 != sample2)
+
+colnames(all_experiments_corr) <- c("Cas9 modality", 
+                                    "FACS phenotype",
+                                    "First replicate",
+                                    "Second replicate",
+                                    "Spearman's correlation coefficient",
+                                    "P-value")
+
+write.table(all_experiments_corr,
+            file = here("./data/supplementary_table5.tsv"),
+            sep = "\t",
+            col.names = TRUE,
+            row.names = FALSE,
+            quote = FALSE)
+```
+
+```{r}
+## What are the strongest correlations?
+all_experiments_corr_sorted <- all_experiments_corr %>%
+  arrange(desc(cor)) %>%
+  subset(cor != 1)
+
+ggplot(all_experiments_corr_sorted,aes(cor,FACS_phenotype,fill = Cas_modality)) +
+  geom_density_ridges()
+
+ggplot(all_experiments_corr_sorted,aes(cor,Cas_modality,fill = Cas_modality)) +
+  geom_density_ridges()
+
+## calculate average correlation for each phenotype
+all_experiments_corr_sorted <- all_experiments_corr_sorted %>%
+  group_by(FACS_phenotype) %>%
+  summarise("mean" = mean(cor)) %>%
+  arrange(desc(mean))
+```

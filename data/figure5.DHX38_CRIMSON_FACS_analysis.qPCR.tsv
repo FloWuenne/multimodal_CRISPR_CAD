@@ -1,0 +1,163 @@
+target_gene	gene_group	sample	sgRNA	sgRNA_group	day	FACS_fraction	r1	r2	r3	Mean	SEM
+Cas9	gene	NT Day2	NT	NT	Day2	X	1	1	1	1	0
+Cas9	gene	sg10966 top Day2	sg10966	DHX38	Day2	Top	1.40146	0.96033	1.30287	1.22	0.13368
+Cas9	gene	sg10966 bot Day2	sg10966	DHX38	Day2	Bottom	1.71658	1.36212	1.13418	1.4	0.16944
+Cas9	gene	sg11664 top Day2	sg11664	DHX38	Day2	Top	1.65732	1.22056	1.12162	1.33	0.16457
+Cas9	gene	sg11664 bot Day2	sg11664	DHX38	Day2	Bottom	1.66411	1.24959	1.00301	1.31	0.19288
+Cas9	gene	Safe_001 top Day2	Safe_001	Safe harbor	Day2	Top	1.70125	1.24679	1.23521	1.39	0.15345
+Cas9	gene	Safe_001 bot Day2	Safe_001	Safe harbor	Day2	Bottom	1.72092	1.48995	0.85415	1.36	0.25915
+Cas9	gene	Safe_002 top Day2	Safe_002	Safe harbor	Day2	Top	1.7311	1.43959	1.33813	1.5	0.11778
+Cas9	gene	Safe_002 bot Day2	Safe_002	Safe harbor	Day2	Bottom	1.85766	1.44449	0.89043	1.4	0.2802
+Cas9	gene	NT Day4	NT	NT	Day4	X	1.21688	1.76654	1.01771	1.33	0.22392
+Cas9	gene	sg10966 top Day4	sg10966	DHX38	Day4	Top	1.5649	2.44999	0.97738	1.66	0.42799
+Cas9	gene	sg10966 bot Day4	sg10966	DHX38	Day4	Bottom	1.42136	1.69328	0.86828	1.33	0.24272
+Cas9	gene	sg11664 top Day4	sg11664	DHX38	Day4	Top	1.69066	2.10291	1.025	1.61	0.31402
+Cas9	gene	sg11664 bot Day4	sg11664	DHX38	Day4	Bottom	1.56959	1.40718	0.79431	1.26	0.23606
+Cas9	gene	Safe_001 top Day4	Safe_001	Safe harbor	Day4	Top	1.47876	1.57547	0.83542	1.3	0.23225
+Cas9	gene	Safe_001 bot Day4	Safe_001	Safe harbor	Day4	Bottom	1.31214	1.19712	0.90495	1.14	0.1212
+Cas9	gene	Safe_002 top Day4	Safe_002	Safe harbor	Day4	Top	1.36264	1.75449	1.01796	1.38	0.21276
+Cas9	gene	Safe_002 bot Day4	Safe_002	Safe harbor	Day4	Bottom	1.16521	1.09869	0.84959	1.04	0.09606
+Cas9	gene	NT Day7	NT	NT	Day7	X	1.60718	1.10783	1.69236	1.47	0.18231
+Cas9	gene	sg10966 top Day7	sg10966	DHX38	Day7	Top	1.77538	1.08937	2.0614	1.64	0.28841
+Cas9	gene	sg10966 bot Day7	sg10966	DHX38	Day7	Bottom	1.36398	0.61363	1.72855	1.24	0.32821
+Cas9	gene	sg11664 top Day7	sg11664	DHX38	Day7	Top	2.7928	1.51801	1.82535	2.05	0.38409
+Cas9	gene	sg11664 bot Day7	sg11664	DHX38	Day7	Bottom	1.45361	0.78719	1.57155	1.27	0.24418
+Cas9	gene	Safe_001 top Day7	Safe_001	Safe harbor	Day7	Top	1.49029	1.35138	1.80691	1.55	0.13479
+Cas9	gene	Safe_001 bot Day7	Safe_001	Safe harbor	Day7	Bottom	1.42246	1.31295	2.27677	1.67	0.30467
+Cas9	gene	Safe_002 top Day7	Safe_002	Safe harbor	Day7	Top	1.59185	0.96482	2.09809	1.55	0.32776
+Cas9	gene	Safe_002 bot Day7	Safe_002	Safe harbor	Day7	Bottom	0.74259	0.7145	1.18553	0.88	0.15254
+DHX38	gene	NT Day2	NT	NT	Day2	X	1	1	1	1	0
+DHX38	gene	sg10966 top Day2	sg10966	DHX38	Day2	Top	0.751	0.77585	0.8627	0.8	0.03386
+DHX38	gene	sg10966 bot Day2	sg10966	DHX38	Day2	Bottom	1.34622	1.12978	1.39469	1.29	0.08144
+DHX38	gene	sg11664 top Day2	sg11664	DHX38	Day2	Top	0.92638	1.53846	0.63749	1.03	0.2656
+DHX38	gene	sg11664 bot Day2	sg11664	DHX38	Day2	Bottom	0.70088	2.06592	0.99882	1.26	0.41438
+DHX38	gene	Safe_001 top Day2	Safe_001	Safe harbor	Day2	Top	1.48131	1.43811	1.01806	1.31	0.14774
+DHX38	gene	Safe_001 bot Day2	Safe_001	Safe harbor	Day2	Bottom	1.0358	1.28892	1.25277	1.19	0.07904
+DHX38	gene	Safe_002 top Day2	Safe_002	Safe harbor	Day2	Top	2.07633	0.80177	1.69446	1.52	0.37765
+DHX38	gene	Safe_002 bot Day2	Safe_002	Safe harbor	Day2	Bottom	1.46478	1.10238	1.36568	1.31	0.10814
+DHX38	gene	NT Day4	NT	NT	Day4	X	1.4215	0.32515	1.26858	1.01	0.34282
+DHX38	gene	sg10966 top Day4	sg10966	DHX38	Day4	Top	0.71481	0.34413	0.98948	0.68	0.18698
+DHX38	gene	sg10966 bot Day4	sg10966	DHX38	Day4	Bottom	1.64868	2.11735	1.0534	1.61	0.30786
+DHX38	gene	sg11664 top Day4	sg11664	DHX38	Day4	Top	0.79424	0.4975	0.71782	0.67	0.08896
+DHX38	gene	sg11664 bot Day4	sg11664	DHX38	Day4	Bottom	1.25957	2.55285	0.65349	1.49	0.56013
+DHX38	gene	Safe_001 top Day4	Safe_001	Safe harbor	Day4	Top	1.67326	0.90285	1.08616	1.22	0.23236
+DHX38	gene	Safe_001 bot Day4	Safe_001	Safe harbor	Day4	Bottom	1.63189	1.72026	0.85061	1.4	0.27634
+DHX38	gene	Safe_002 top Day4	Safe_002	Safe harbor	Day4	Top	1.50342	1.84665	0.70553	1.35	0.33802
+DHX38	gene	Safe_002 bot Day4	Safe_002	Safe harbor	Day4	Bottom	2.23175	1.29197	1.18972	1.57	0.33162
+DHX38	gene	NT Day7	NT	NT	Day7	X	1.35977	1.02053	0.9152	1.1	0.13413
+DHX38	gene	sg10966 top Day7	sg10966	DHX38	Day7	Top	1.1011	0.76395	1.00846	0.96	0.10057
+DHX38	gene	sg10966 bot Day7	sg10966	DHX38	Day7	Bottom	1.92819	1.00028	1.27303	1.4	0.27534
+DHX38	gene	sg11664 top Day7	sg11664	DHX38	Day7	Top	1.12707	0.41175	0.84719	0.8	0.20811
+DHX38	gene	sg11664 bot Day7	sg11664	DHX38	Day7	Bottom	2.14489	0.86043	2.70837	1.9	0.54682
+DHX38	gene	Safe_001 top Day7	Safe_001	Safe harbor	Day7	Top	2.21147	1.55305	2.70479	2.16	0.33362
+DHX38	gene	Safe_001 bot Day7	Safe_001	Safe harbor	Day7	Bottom	1.85773	3.15296	2.13893	2.38	0.39334
+DHX38	gene	Safe_002 top Day7	Safe_002	Safe harbor	Day7	Top	1.95984	1.58016	2.05486	1.86	0.14501
+DHX38	gene	Safe_002 bot Day7	Safe_002	Safe harbor	Day7	Bottom	2.14221	1.46364	0.96316	1.52	0.34166
+p21	gene	NT Day2	NT	NT	Day2	X	1	1	1	1	0
+p21	gene	sg10966 top Day2	sg10966	DHX38	Day2	Top	3.09311	3.86666	3.64054	3.53	0.22964
+p21	gene	sg10966 bot Day2	sg10966	DHX38	Day2	Bottom	2.68963	2.52734	3.13243	2.78	0.18082
+p21	gene	sg11664 top Day2	sg11664	DHX38	Day2	Top	3.2114	4.55969	3.11265	3.63	0.46676
+p21	gene	sg11664 bot Day2	sg11664	DHX38	Day2	Bottom	1.70019	3.63027	2.58948	2.64	0.55774
+p21	gene	Safe_001 top Day2	Safe_001	Safe harbor	Day2	Top	2.72438	2.68157	2.11293	2.51	0.19707
+p21	gene	Safe_001 bot Day2	Safe_001	Safe harbor	Day2	Bottom	2.28034	2.34895	1.80519	2.14	0.17097
+p21	gene	Safe_002 top Day2	Safe_002	Safe harbor	Day2	Top	2.31797	2.69987	2.08242	2.37	0.1799
+p21	gene	Safe_002 bot Day2	Safe_002	Safe harbor	Day2	Bottom	2.21198	2.69406	1.96858	2.29	0.21317
+p21	gene	NT Day4	NT	NT	Day4	X	2.20486	2.66329	3.41251	2.76	0.35197
+p21	gene	sg10966 top Day4	sg10966	DHX38	Day4	Top	5.44644	6.12022	7.54521	6.37	0.61866
+p21	gene	sg10966 bot Day4	sg10966	DHX38	Day4	Bottom	2.6739	4.08492	4.18197	3.65	0.48732
+p21	gene	sg11664 top Day4	sg11664	DHX38	Day4	Top	3.90067	5.15775	6.32567	5.13	0.7002
+p21	gene	sg11664 bot Day4	sg11664	DHX38	Day4	Bottom	2.09392	3.80603	3.72591	3.21	0.55783
+p21	gene	Safe_001 top Day4	Safe_001	Safe harbor	Day4	Top	2.5046	3.48979	3.76249	3.25	0.38204
+p21	gene	Safe_001 bot Day4	Safe_001	Safe harbor	Day4	Bottom	2.25496	4.44806	3.48415	3.4	0.63464
+p21	gene	Safe_002 top Day4	Safe_002	Safe harbor	Day4	Top	2.63494	4.12813	4.6934	3.82	0.61402
+p21	gene	Safe_002 bot Day4	Safe_002	Safe harbor	Day4	Bottom	1.91297	3.80683	3.8576	3.19	0.63991
+p21	gene	NT Day7	NT	NT	Day7	X	4.64079	3.21293	7.52722	5.13	1.26893
+p21	gene	sg10966 top Day7	sg10966	DHX38	Day7	Top	10.20211	11.25065	13.4238	11.63	0.94872
+p21	gene	sg10966 bot Day7	sg10966	DHX38	Day7	Bottom	2.50431	2.72057	4.975	3.4	0.78999
+p21	gene	sg11664 top Day7	sg11664	DHX38	Day7	Top	8.51945	8.48992	13.68895	10.23	1.72811
+p21	gene	sg11664 bot Day7	sg11664	DHX38	Day7	Bottom	2.48547	1.93221	4.55642	2.99	0.79866
+p21	gene	Safe_001 top Day7	Safe_001	Safe harbor	Day7	Top	3.98924	5.30135	6.74051	5.34	0.7945
+p21	gene	Safe_001 bot Day7	Safe_001	Safe harbor	Day7	Bottom	2.94864	3.62124	6.58886	4.39	1.11829
+p21	gene	Safe_002 top Day7	Safe_002	Safe harbor	Day7	Top	4.55173	4.43607	6.95942	5.32	0.82252
+p21	gene	Safe_002 bot Day7	Safe_002	Safe harbor	Day7	Bottom	2.69834	2.53219	5.37866	3.54	0.92238
+sg10966	sgRNA	NT Day2	NT	NT	Day2	X					
+sg10966	sgRNA	sg10966 top Day2	sg10966	DHX38	Day2	Top	1.52207	0.42742	1.4006	1.12	0.34642
+sg10966	sgRNA	sg10966 bot Day2	sg10966	DHX38	Day2	Bottom	0.41886			0.42	#DIV/0!
+sg10966	sgRNA	sg11664 top Day2	sg11664	DHX38	Day2	Top					
+sg10966	sgRNA	sg11664 bot Day2	sg11664	DHX38	Day2	Bottom					
+sg10966	sgRNA	Safe_001 top Day2	Safe_001	Safe harbor	Day2	Top					
+sg10966	sgRNA	Safe_001 bot Day2	Safe_001	Safe harbor	Day2	Bottom					
+sg10966	sgRNA	Safe_002 top Day2	Safe_002	Safe harbor	Day2	Top					
+sg10966	sgRNA	Safe_002 bot Day2	Safe_002	Safe harbor	Day2	Bottom					
+sg10966	sgRNA	NT Day4	NT	NT	Day4	X					
+sg10966	sgRNA	sg10966 top Day4	sg10966	DHX38	Day4	Top	1.23921	1.31644	1.14691	1.23	0.049
+sg10966	sgRNA	sg10966 bot Day4	sg10966	DHX38	Day4	Bottom	0.83035	0.0978		0.46	0.29906
+sg10966	sgRNA	sg11664 top Day4	sg11664	DHX38	Day4	Top					
+sg10966	sgRNA	sg11664 bot Day4	sg11664	DHX38	Day4	Bottom					
+sg10966	sgRNA	Safe_001 top Day4	Safe_001	Safe harbor	Day4	Top					
+sg10966	sgRNA	Safe_001 bot Day4	Safe_001	Safe harbor	Day4	Bottom					
+sg10966	sgRNA	Safe_002 top Day4	Safe_002	Safe harbor	Day4	Top					
+sg10966	sgRNA	Safe_002 bot Day4	Safe_002	Safe harbor	Day4	Bottom					
+sg10966	sgRNA	NT Day7	NT	NT	Day7	X					
+sg10966	sgRNA	sg10966 top Day7	sg10966	DHX38	Day7	Top	2.10821	0.41483	0.86759	1.13	0.50617
+sg10966	sgRNA	sg10966 bot Day7	sg10966	DHX38	Day7	Bottom				#DIV/0!	#DIV/0!
+sg10966	sgRNA	sg11664 top Day7	sg11664	DHX38	Day7	Top					
+sg10966	sgRNA	sg11664 bot Day7	sg11664	DHX38	Day7	Bottom					
+sg10966	sgRNA	Safe_001 top Day7	Safe_001	Safe harbor	Day7	Top					
+sg10966	sgRNA	Safe_001 bot Day7	Safe_001	Safe harbor	Day7	Bottom					
+sg10966	sgRNA	Safe_002 top Day7	Safe_002	Safe harbor	Day7	Top					
+sg10966	sgRNA	Safe_002 bot Day7	Safe_002	Safe harbor	Day7	Bottom					
+sg11664	sgRNA	NT Day2	NT	NT	Day2	X					
+sg11664	sgRNA	sg10966 top Day2	sg10966	DHX38	Day2	Top					
+sg11664	sgRNA	sg10966 bot Day2	sg10966	DHX38	Day2	Bottom					
+sg11664	sgRNA	sg11664 top Day2	sg11664	DHX38	Day2	Top	1.27516	1.05778	0.38713	0.91	0.26725
+sg11664	sgRNA	sg11664 bot Day2	sg11664	DHX38	Day2	Bottom	0.21783		0.69223	0.46	0.19367
+sg11664	sgRNA	Safe_001 top Day2	Safe_001	Safe harbor	Day2	Top					
+sg11664	sgRNA	Safe_001 bot Day2	Safe_001	Safe harbor	Day2	Bottom					
+sg11664	sgRNA	Safe_002 top Day2	Safe_002	Safe harbor	Day2	Top					
+sg11664	sgRNA	Safe_002 bot Day2	Safe_002	Safe harbor	Day2	Bottom					
+sg11664	sgRNA	NT Day4	NT	NT	Day4	X					
+sg11664	sgRNA	sg10966 top Day4	sg10966	DHX38	Day4	Top					
+sg11664	sgRNA	sg10966 bot Day4	sg10966	DHX38	Day4	Bottom					
+sg11664	sgRNA	sg11664 top Day4	sg11664	DHX38	Day4	Top	0.93645	1.00947	1.21149	1.05	0.08226
+sg11664	sgRNA	sg11664 bot Day4	sg11664	DHX38	Day4	Bottom					
+sg11664	sgRNA	Safe_001 top Day4	Safe_001	Safe harbor	Day4	Top					
+sg11664	sgRNA	Safe_001 bot Day4	Safe_001	Safe harbor	Day4	Bottom					
+sg11664	sgRNA	Safe_002 top Day4	Safe_002	Safe harbor	Day4	Top					
+sg11664	sgRNA	Safe_002 bot Day4	Safe_002	Safe harbor	Day4	Bottom					
+sg11664	sgRNA	NT Day7	NT	NT	Day7	X					
+sg11664	sgRNA	sg10966 top Day7	sg10966	DHX38	Day7	Top					
+sg11664	sgRNA	sg10966 bot Day7	sg10966	DHX38	Day7	Bottom					
+sg11664	sgRNA	sg11664 top Day7	sg11664	DHX38	Day7	Top	0.72733	0.7025	0.30462	0.58	0.13695
+sg11664	sgRNA	sg11664 bot Day7	sg11664	DHX38	Day7	Bottom			0.11166	0.11	#DIV/0!
+sg11664	sgRNA	Safe_001 top Day7	Safe_001	Safe harbor	Day7	Top					
+sg11664	sgRNA	Safe_001 bot Day7	Safe_001	Safe harbor	Day7	Bottom					
+sg11664	sgRNA	Safe_002 top Day7	Safe_002	Safe harbor	Day7	Top					
+sg11664	sgRNA	Safe_002 bot Day7	Safe_002	Safe harbor	Day7	Bottom					
+sgSafe_002	sgRNA	NT Day2	NT	NT	Day2	X					
+sgSafe_002	sgRNA	sg10966 top Day2	sg10966	DHX38	Day2	Top					
+sgSafe_002	sgRNA	sg10966 bot Day2	sg10966	DHX38	Day2	Bottom					
+sgSafe_002	sgRNA	sg11664 top Day2	sg11664	DHX38	Day2	Top					
+sgSafe_002	sgRNA	sg11664 bot Day2	sg11664	DHX38	Day2	Bottom					
+sgSafe_002	sgRNA	Safe_001 top Day2	Safe_001	Safe harbor	Day2	Top					
+sgSafe_002	sgRNA	Safe_001 bot Day2	Safe_001	Safe harbor	Day2	Bottom					
+sgSafe_002	sgRNA	Safe_002 top Day2	Safe_002	Safe harbor	Day2	Top		0.27983		0.28	#DIV/0!
+sgSafe_002	sgRNA	Safe_002 bot Day2	Safe_002	Safe harbor	Day2	Bottom					
+sgSafe_002	sgRNA	NT Day4	NT	NT	Day4	X					
+sgSafe_002	sgRNA	sg10966 top Day4	sg10966	DHX38	Day4	Top					
+sgSafe_002	sgRNA	sg10966 bot Day4	sg10966	DHX38	Day4	Bottom					
+sgSafe_002	sgRNA	sg11664 top Day4	sg11664	DHX38	Day4	Top					
+sgSafe_002	sgRNA	sg11664 bot Day4	sg11664	DHX38	Day4	Bottom					
+sgSafe_002	sgRNA	Safe_001 top Day4	Safe_001	Safe harbor	Day4	Top					
+sgSafe_002	sgRNA	Safe_001 bot Day4	Safe_001	Safe harbor	Day4	Bottom					
+sgSafe_002	sgRNA	Safe_002 top Day4	Safe_002	Safe harbor	Day4	Top	1.14876	0.06821	0.67523	0.63	0.31272
+sgSafe_002	sgRNA	Safe_002 bot Day4	Safe_002	Safe harbor	Day4	Bottom	0.30611			0.31	#DIV/0!
+sgSafe_002	sgRNA	NT Day7	NT	NT	Day7	X					
+sgSafe_002	sgRNA	sg10966 top Day7	sg10966	DHX38	Day7	Top					
+sgSafe_002	sgRNA	sg10966 bot Day7	sg10966	DHX38	Day7	Bottom					
+sgSafe_002	sgRNA	sg11664 top Day7	sg11664	DHX38	Day7	Top					
+sgSafe_002	sgRNA	sg11664 bot Day7	sg11664	DHX38	Day7	Bottom					
+sgSafe_002	sgRNA	Safe_001 top Day7	Safe_001	Safe harbor	Day7	Top					
+sgSafe_002	sgRNA	Safe_001 bot Day7	Safe_001	Safe harbor	Day7	Bottom					
+sgSafe_002	sgRNA	Safe_002 top Day7	Safe_002	Safe harbor	Day7	Top	0.43016	1.01524	1.01747	0.82	0.1954
+sgSafe_002	sgRNA	Safe_002 bot Day7	Safe_002	Safe harbor	Day7	Bottom					

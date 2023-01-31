@@ -1,0 +1,31 @@
+Antibiotic	sgRNA	cell_count
+Zeomycin	Safe harbor	347
+Zeomycin	Safe harbor	381
+Zeomycin	Safe harbor	440
+Zeomycin	Safe harbor	327
+Zeomycin	Safe harbor	324
+Zeomycin	Safe harbor	273
+Zeomycin	Safe harbor	321
+Zeomycin	Safe harbor	228
+Zeomycin	Safe harbor	215
+Zeomycin	Safe harbor	303
+Zeomycin	LPL_sg08237	339
+Zeomycin	LPL_sg08237	229
+Zeomycin	LPL_sg08237	306
+Zeomycin	LPL_sg08237	309
+Zeomycin	LPL_sg08237	245
+No selection	Safe harbor	725
+No selection	Safe harbor	637
+No selection	Safe harbor	762
+No selection	Safe harbor	592
+No selection	Safe harbor	714
+No selection	Safe harbor	507
+No selection	Safe harbor	489
+No selection	Safe harbor	499
+No selection	Safe harbor	621
+No selection	Safe harbor	319
+No selection	LPL_sg08237	784
+No selection	LPL_sg08237	616
+No selection	LPL_sg08237	648
+No selection	LPL_sg08237	673
+No selection	LPL_sg08237	830

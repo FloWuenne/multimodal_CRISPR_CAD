@@ -1,0 +1,98 @@
+---
+title: "Supplementary Figure 10"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(cowplot)
+library(ggridges)
+library(ggrepel)
+library(ggridges)
+library(patchwork)
+library(ggplotify)
+library(viridis)
+library(ggbeeswarm)
+library(ggsignif)
+
+source("./Figure_functions.R")
+
+theme_set(theme_cowplot_custom)
+
+crimson_pos_col <- "#dc143cff"
+crimson_neg_col <- "#eebfa6ff"
+dot_size <- 3
+dot_alpha <- 0.85
+signif_textsize <- 4
+
+ggsignif_text_size <- 5
+```
+
+# Read data
+
+```{r}
+overexpression <- fread(here("./data/supp_figure10.CCDC92_ICAM1_qPCR.csv"))
+
+overexpression <- overexpression %>%
+  select(target_gene,sample,control,r1,r2,r3) %>%
+  pivot_longer(-c(target_gene,sample,control),
+               names_to = "replicate", values_to = "values")
+```
+
+# Plot data
+
+```{r}
+overexpression_sub1 <- overexpression %>%
+  subset(target_gene %in% c("FES","FURIN", "CCDC92","CDKN1A","ICAM1")) %>%
+  mutate("sample_full" = paste(sample,control,sep="_"))
+
+overexpression_sub1$sample <- factor(overexpression_sub1$sample,
+                                     levels = c("NI","Empty","FURIN","FES","CCDC92"))
+
+overexpression_sub1$control <- factor(overexpression_sub1$control,
+                                     levels = c("NI","neg","pos"))
+
+overexpression_sub1$target_gene <- factor(overexpression_sub1$target_gene,
+                                     levels = c("FES","FURIN","CCDC92","CDKN1A","ICAM1"))
+
+## remove FES, FURIN and CDKN1A
+overexpression_sub1 <- overexpression_sub1 %>% 
+  subset(!target_gene %in% c("FES","FURIN","CDKN1A")) %>%
+  subset(!sample %in% c("FURIN","FES"))
+
+supp_figure_10 <- ggplot(overexpression_sub1,aes(control,values,
+                               fill = sample,
+                               group = sample)) +
+  geom_beeswarm() +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(0.95),
+               width = .5) +
+  stat_summary(fun = "mean", geom = "bar", position =  position_dodge2(padding = 0, preserve = "single"),
+               color = "black") +
+  facet_grid(target_gene ~ sample,
+             scales = "free") + 
+  geom_point(color = "black", pch = 21, size = dot_size, alpha = dot_alpha,
+             position = position_dodge(width=0.95),
+             show.legend=FALSE) +
+  scale_fill_brewer(palette = "Set2") +
+ theme(legend.position = "none",
+        strip.text=element_text(colour="white"), strip.background=element_rect(fill="grey20"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))   +
+  labs(x = "",
+       y = "Relative expression")
+```
+
+```{r}
+save_plot(supp_figure_10,
+          filename = here("./figures/Supplementary_Figure_10.tiff"),
+          base_height = 8,
+          base_width = 6)
+```

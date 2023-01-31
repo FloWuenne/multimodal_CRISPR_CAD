@@ -1,0 +1,280 @@
+---
+title: 'RNAseq validations DEseq2 analysis'
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load packages
+library(tximport)
+library(DESeq2)
+library(tidyverse)
+library(data.table)
+library(plotly)
+library(cowplot)
+library(ggrepel)
+library(GGally)
+library(UpSetR)
+library(apeglm)
+library(here)
+
+theme_set(theme_cowplot())
+```
+
+# Introduction
+
+Transcript abundances were quantified using kallisto against ensemble version 96 reference.
+Processing of fastq files for RNAseq can be found in:
+[rnaseq_validations.create_kallisto_index.sh](./scripts/rnaseq_validations.create_kallisto_index.sh)
+[rnaseq_validations.run_kallisto_quant.sh](./scripts/rnaseq_validations.run_kallisto_quant.sh)
+
+# Load metadata
+
+First, we will read in a metadata table that contains the information concerning all experiments.
+
+```{r, eval = TRUE}
+metadata <- fread(here("./data/rnaseq.validation_samples_overview.tsv"))
+```
+
+
+# Import counts using tximport
+
+Then, we need to read in our table to aggregate transcript level counts to gene level counts.
+
+```{r}
+## Read in tx to gene table
+tx2g <- fread(here("./references/tx2gene.with_Cas9.txt"),
+              header = FALSE)
+
+tx2g <- tx2g %>%
+  select(V1,V3)
+```
+
+## All samples together for UMAP and comparison
+
+Now we will use tximport to aggregate all of the samples into one large matrix with counts aggregated at the gene level. This reads the processed data that has been quantified using kallisto.
+
+```{r}
+kallisto_dir <- here("./data/kallisto_quant_res")
+
+sample_names <- unique(metadata$sample_name)
+files <- paste(kallisto_dir,sample_names,"abundance.h5",sep="/")
+names(files) <- sample_names
+
+txi_all <- tximport(files, 
+                    type = "kallisto", 
+                    txOut = FALSE,
+                    tx2gene = tx2g,
+                    countsFromAbundance = "scaledTPM")
+```
+
+We will then use the tximport data to run DESeq analysis on the different experiments. For this, we will first create a DESeq object.
+
+```{r}
+sampleTable <- metadata %>%
+  select(sample_name,variant,sgRNA,Cas_flavour,candidate_gene,type,experiment_number,sequencing_facility) %>%
+  mutate("experiment_number" = paste("exp",experiment_number,sep="")) %>%
+  mutate("experiment_id" = paste(experiment_number,sgRNA,candidate_gene,sep="_")) %>%
+  mutate("experiment_id" = as.factor(experiment_id)) %>%
+  unique()
+
+rownames(sampleTable) <- sampleTable$sample_name
+
+dds <- DESeqDataSetFromTximport(txi_all, sampleTable, design = ~ experiment_id)
+dds <- estimateSizeFactors(dds)
+```
+
+
+```{r}
+library("vsn")
+keep <- rowSums(counts(dds)) >= 10
+dds_filt <- dds[keep,]
+rlog_dds <- rlog(dds_filt, blind=TRUE) ## rlog transformation
+meanSdPlot(assay(rlog_dds))
+```
+
+
+## PCA based on normalized expression
+
+```{r}
+## Check PCA mapping for several metadata factors
+plotPCA(rlog_dds, intgroup=c("experiment_number"))
+plotPCA(rlog_dds, intgroup=c("sequencing_facility"))
+plotPCA(rlog_dds, intgroup=c("Cas_flavour"))
+plotPCA(rlog_dds, intgroup=c("experiment_id"))
+pcs <- prcomp(assay(rlog_dds))
+```
+
+```{r}
+## Plot eigenvalues
+library(factoextra)
+fviz_eig(pcs, addlabels = TRUE, ylim = c(0, 50))
+
+## Find genes driving PC1
+pc1_genes <- as.data.frame(pcs$x) %>%
+  mutate("gene" = rownames(pcs$x)) %>%
+  select(gene,PC1) %>%
+  arrange(desc(PC1))
+```
+
+
+```{r}
+## Sample distance matrix
+sampleDists <- dist(t(assay(rlog_dds)))
+```
+
+```{r}
+library(RColorBrewer)
+library(pheatmap)
+sampleDistMatrix <- as.matrix(sampleDists)
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors)
+```
+
+
+
+```{r}
+## Save rlog normalized expression
+rlog_dds_df <- as.data.frame(assay(rlog_dds))
+rownames(rlog_dds_df) <- rownames(assay(rlog_dds))
+
+## Save raw counts from DESeq2
+raw_counts <- as.data.frame(counts(dds))
+```
+
+## Compare rlog normalization with scaledTPM values
+
+```{r}
+scaledtpm_sub <- txi_all$abundance[rownames(rlog_dds_df),]
+
+merged_exp <- cbind(scaledtpm_sub[,1],rlog_dds_df[,1])
+colnames(merged_exp) <- c("scaledTPM","rlog")
+merged_exp <- as.data.frame(merged_exp)
+
+
+ggplot(merged_exp,aes(log2(scaledTPM),rlog)) +
+  geom_point() +
+  geom_point(data = subset(merged_exp,rownames(merged_exp) %in% c("FES","FURIN","DHX38")),
+             color = "red", size = 2) +
+    geom_point(data = subset(merged_exp,rownames(merged_exp) %in% c("Cas9")),
+             color = "purple", size = 2)
+```
+
+
+## Check Cas9 expression in all experiments
+
+```{r}
+cas9 <- rlog_dds_df["Cas9",]
+cas9_long <- cas9 %>%
+  gather(sample,exp)
+
+ggplot(cas9_long,aes(sample,exp)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(y = "Cas9 expression")
+```
+
+
+
+## Perform DE analysis
+
+```{r}
+## Perform differential expression
+dds_filt <- DESeq(dds_filt)
+```
+
+
+### Calculate de results
+
+```{r}
+## Produce results tables for all experiment comparisons
+dds <- dds_filt
+dds <- DESeq(dds)
+resultsNames(dds)
+
+## FES/FURIN - rs12906125
+dds$experiment_id <- relevel(dds$experiment_id, ref="exp1_safe_FES_FURIN")
+dds <- DESeq(dds)
+experiment_1_furin_fes_lfcshrink <- lfcShrink(dds,
+                                              coef = "experiment_id_exp1_sgRNA_06939_FES_FURIN_vs_exp1_safe_FES_FURIN", 
+                                              type = 'apeglm')
+
+## ZNF664 - rs12311848
+dds$experiment_id <- relevel(dds$experiment_id, ref="exp2_safe_ZNF664_CNNM2")
+dds <- DESeq(dds)
+experiment_2_znf664_lfcshrink <- lfcShrink(dds,
+                                           coef = "experiment_id_exp2_sgRNA_06147_ZNF664_vs_exp2_safe_ZNF664_CNNM2", 
+                                           type = 'apeglm')
+
+
+## CNNM2 - rs78260931
+dds$experiment_id <- relevel(dds$experiment_id, ref="exp2_safe_ZNF664_CNNM2")
+dds <- DESeq(dds)
+experiment_3_cnnm2_lfcshrink <- lfcShrink(dds,
+                                           coef = "experiment_id_exp3_sgRNA_25344_CNNM2_vs_exp2_safe_ZNF664_CNNM2", 
+                                           type = 'apeglm')
+
+## DHX38 - rs2074626
+dds$experiment_id <- relevel(dds$experiment_id, ref="exp4_safe_DHX38")
+dds <- DESeq(dds)
+experiment_4_dhx38_lfcshrink <- lfcShrink(dds,
+                                          coef = "experiment_id_exp4_sgRNA_10966_DHX38_vs_exp4_safe_DHX38", 
+                                          type = 'apeglm')
+
+
+## MAT2A - rs1078004
+dds$experiment_id <- relevel(dds$experiment_id, ref="exp5_safe_MAT2A")
+dds <- DESeq(dds)
+experiment_5_mat2a_lfcshrink <- lfcShrink(dds,
+                                          coef = "experiment_id_exp5_sgRNA_02249_MAT2A_vs_exp5_safe_MAT2A", 
+                                          type = 'apeglm')
+```
+
+### Merge all results
+
+```{r}
+## Annotate tables, filter, sort and merge
+experiment_1_furin_fes_lfcshrink$gene <- rownames(experiment_1_furin_fes_lfcshrink)
+experiment_1_furin_fes_lfcshrink$experiment <- "exp1_sgRNA_06939_FES_FURIN"
+experiment_2_znf664_lfcshrink$gene <- rownames(experiment_2_znf664_lfcshrink)
+experiment_2_znf664_lfcshrink$experiment <- "exp2_sgRNA_06147_ZNF664"
+experiment_3_cnnm2_lfcshrink$gene <- rownames(experiment_3_cnnm2_lfcshrink)
+experiment_3_cnnm2_lfcshrink$experiment <- "exp3_sgRNA_25344_CNNM2"
+experiment_4_dhx38_lfcshrink$gene <- rownames(experiment_4_dhx38_lfcshrink)
+experiment_4_dhx38_lfcshrink$experiment <- "exp4_sgRNA_10966_DHX38"
+experiment_5_mat2a_lfcshrink$gene <- rownames(experiment_5_mat2a_lfcshrink)
+experiment_5_mat2a_lfcshrink$experiment <- "exp5_sgRNA_02249_MAT2A"
+
+## merge
+all_deseq_results <- as.data.frame(rbind(experiment_1_furin_fes_lfcshrink,
+                                         experiment_2_znf664_lfcshrink,
+                                         experiment_3_cnnm2_lfcshrink,
+                                         experiment_4_dhx38_lfcshrink,
+                                         experiment_5_mat2a_lfcshrink
+                                         ))
+
+## filter
+all_deseq_results <- all_deseq_results %>%
+  subset(!is.na(padj)) %>%
+  arrange(padj)
+
+## significant hits
+all_assays_sig <- all_deseq_results %>%
+  subset(padj <= 0.05) %>%
+  arrange(padj)
+```
+
+
+```{r}
+saveRDS(dds,
+        file = here("./data/all_validations.deseq2_object.rds"))
+```
+

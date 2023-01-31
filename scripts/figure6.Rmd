@@ -1,0 +1,63 @@
+---
+title: "Figure 6"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(cowplot)
+library(ggridges)
+library(ggrepel)
+library(ggridges)
+library(patchwork)
+library(biomaRt)
+library(GenomicRanges)
+library(ggplotify)
+library(viridis)
+library(ggbeeswarm)
+library(ggsignif)
+library(Seurat)
+library(Nebulosa)
+library(DESeq2)
+library(here)
+library(fgsea)
+
+source("./Figure_functions.R")
+
+theme_set(theme_cowplot_custom)
+```
+
+
+# Panel A 
+
+PyGenomeTracks figure for CNNM2 locus, see script [./pyGenomeTracks_scripts/plot_rs78260931.CNNM2.sh](./pyGenomeTracks_scripts/plot_rs78260931.CNNM2.sh)
+
+# Panel B
+
+pyGenomeTracks figure for CCDC92/ZNF664 locus, see script [./pyGenomeTracks_scripts/plot_rs12311848.ZNF664.sh](./pyGenomeTracks_scripts/plot_rs12311848.ZNF664.sh)
+
+
+# Panel C
+
+UMAP plots for candidate genes in single-cell data
+
+```{r}
+seurat_object <- readRDS(here("./data/GSE131778.seurat_object.SCT.rds"))
+```
+
+```{r}
+candidate_genes <- c("CDH5","DHX38","MAT2A","FES","FURIN")
+all_candidates_marker_plot <- plot_density(seurat_object, candidate_genes, size = 1)
+```
+
+
+```{r}
+save_plot(all_candidates_marker_plot,
+          filename = "./plots/Figure_6.panelC.pdf",
+          base_height = 6,
+          base_width = 12)
+```

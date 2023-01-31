@@ -1,0 +1,123 @@
+---
+title: "Calculate GSEA results"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(DESeq2)
+library(UpSetR)
+library(tidyverse)
+library(cowplot)
+library(here)
+```
+
+# Load RNA-seq results
+
+```{r}
+deseq_object <- readRDS(here("./data/all_validations.deseq2_object.rds"))
+```
+
+# Score against hallmark gene sets
+
+```{r}
+## For each experiment, run fgsea with 100k permutations and save results in a joined table
+all_fgsea_res <- data.frame()
+
+experiment_contrasts <- list("exp1_sgRNA_06939_FES_FURIN" = c("experiment_id","exp_2_rs12906125_VP64_FURIN_FES","exp_2_safe_VP64_FURIN_FES"),
+                             "exp2_sgRNA_06147_ZNF664" = c("experiment_id","exp_5_rs12311848_VP64_ZNF664","exp_5_safe_VP64_ZNF664_CNNM2"),
+                             "exp3_sgRNA_25344_CNNM2" = c("experiment_id","exp_5_rs78260931_VP64_CNNM2","exp_5_safe_VP64_ZNF664_CNNM2"),
+                             "exp4_sgRNA_10966_DHX38" = c("experiment_id","exp_1_rs2074626_Cas9_DHX38","exp_1_safe_Cas9_DHX38"),
+                             "exp5_sgRNA_02249_MAT2A" = c("experiment_id","exp_3_rs1078004_Cas9_MAT2A","exp_3_safe_Cas9_MAT2A"))
+
+for(experiment in names(experiment_contrasts)){
+  print(experiment)
+  
+  current_contrast <- experiment_contrasts[[experiment]]
+  res_dds <- as.data.frame(results(deseq_object, contrast = current_contrast))
+  
+  res_dds$gene <- rownames(res_dds)
+res_stat_dds <- res_dds %>%
+  dplyr::select(gene, stat) %>%
+  na.omit() %>%
+  distinct() %>%
+  group_by(gene) %>%
+  summarize(stat=mean(stat))
+  res_stat_dds
+  
+  ranks_dds <- deframe(res_stat_dds)
+  
+  library(fgsea)
+  library(msigdbr)
+  pathways.hallmark = msigdbr(species = "Homo sapiens", category = "H")
+  msigdbr_list = split(x = pathways.hallmark$gene_symbol, f = pathways.hallmark$gs_name)
+  fgseaRes_dds <- fgsea(pathways=msigdbr_list, stats=ranks_dds, nperm=100000)
+  
+  fgseaResTidy_dds <- fgseaRes_dds %>%
+    as_tibble() %>%
+    arrange(desc(NES))
+  
+  # Show in a nice table:
+  fgseaResTidy_dds %>%
+    arrange(padj) %>%
+    arrange(desc(NES))
+  
+  fgseaResTidy_dds$pathway <- factor(fgseaResTidy_dds$pathway,
+                                     levels = rev(unique(fgseaResTidy_dds$pathway)))
+  
+  fgseaResTidy_dds$experiment <- experiment
+
+  all_fgsea_res <- rbind(all_fgsea_res,fgseaResTidy_dds)
+}
+```
+
+
+```{r}
+all_fgsea_res_mod <- all_fgsea_res %>% 
+  mutate(leadingEdge = sapply(leadingEdge, toString))
+```
+
+
+```{r}
+all_fgsea_res_mod <- all_fgsea_res %>%
+  mutate("Cas9_variant" = if_else(experiment %in% c("exp1_sgRNA_06939_FES_FURIN",
+                                                    "exp2_sgRNA_06147_ZNF664",
+                                                    "exp3_sgRNA_25344_CNNM2"),"CRISPRa","Cas9"))
+```
+
+```{r}
+## Reorganize and rename columns
+final_fgsea <- all_fgsea_res_mod %>%
+  select(experiment,Cas9_variant,pathway,pval,padj,ES,NES,nMoreExtreme,size,leadingEdge)
+
+colnames(final_fgsea) <- c("Experiment",
+                        "Cas9_variant",
+                        "Pathway",
+                        "P-value",
+                        "Benjamini-HochbergP-value",
+                        "ES",
+                        "NES",
+                        "nMoreExtreme",
+                        "size",
+                        "leadingEdge")
+
+final_fgsea <- final_fgsea %>%
+  rowwise() %>%
+  mutate(leadingEdge = paste(leadingEdge,collapse = ",")) %>%
+  ungroup()
+
+final_fgsea <- as.data.table(final_fgsea)
+```
+
+
+```{r}
+write.table(final_fgsea,
+            file = here("./data/Supplementary_Table_7.tsv"),
+            sep= "\t",
+            col.names= TRUE,
+            row.names = FALSE,
+            quote = FALSE)
+```
+

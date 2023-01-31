@@ -1,0 +1,228 @@
+---
+title: "Supplementary Figure 8"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(cowplot)
+library(ggsci)
+library(ggsignif)
+library(here)
+
+source("./Figure_functions.R")
+
+theme_set(theme_cowplot_custom)
+```
+
+Supplementary Figure - Validation of sgRNA effects for DHX38 in primary human aortic endothelial cells
+
+# Load data
+
+```{r}
+qPCR_validation <- fread(here("./data/supp_figure8.qPCR_data_DHX38_CDKN1A.csv"))
+```
+
+# Format data
+
+```{r}
+qPCR_validation_long <- qPCR_validation %>%
+  pivot_longer(cols= c(r1,r2,r3) ,names_to = "replicate", values_to = "value") %>%
+  subset(sgRNA_group %in% c("DHX38","Mat2A","LPL","Safe harbor")) %>%
+  subset(target_gene != "Mat2A_001") %>%
+  subset(sgRNA_group != "Mat2A") %>%
+  drop_na()
+
+## Format gene names
+qPCR_validation_long$target_gene <- gsub("DHX38_002","DHX38",qPCR_validation_long$target_gene)
+#qPCR_validation_long$target_gene <- gsub("Mat2A_001","MAT2A",qPCR_validation_long$target_gene)
+qPCR_validation_long$target_gene <- gsub("p21","CDKN1A",qPCR_validation_long$target_gene)
+
+## Format sgRNA group
+#qPCR_validation_long$sgRNA_group <- sub("Mat2A","MAT2A",qPCR_validation_long$sgRNA_group)
+
+## Format days
+qPCR_validation_long$day <- gsub("4","Day4",qPCR_validation_long$day)
+qPCR_validation_long$day <- gsub("7","Day7",qPCR_validation_long$day)
+```
+
+# Statistical tests
+
+## DHX38 expression
+
+```{r}
+## Day4
+dhx38_exp_day4 <- subset(qPCR_validation_long,day == "Day4" & target_gene == "DHX38" & sgRNA_group == "DHX38")
+safe_exp_day4 <- subset(qPCR_validation_long,day == "Day4" & target_gene == "DHX38" & sgRNA_group == "Safe harbor")
+dhx38_day4_test <- t.test(dhx38_exp_day4$value,safe_exp_day4$value,
+       alternative = "two.sided")
+dhx38_day4_test$p.value
+
+lpl_exp_day4 <- subset(qPCR_validation_long,day == "Day4" & target_gene == "DHX38" & sgRNA_group == "LPL")
+safe_exp_day4 <- subset(qPCR_validation_long,day == "Day4" & target_gene == "DHX38" & sgRNA_group == "Safe harbor")
+lpl_day4_test <- t.test(lpl_exp_day4$value,safe_exp_day4$value,
+       alternative = "two.sided")
+lpl_day4_test$p.value
+```
+
+```{r}
+## Day7
+dhx38_exp_day7 <- subset(qPCR_validation_long,day == "Day7" & target_gene == "DHX38" & sgRNA_group == "DHX38")
+safe_exp_day7 <- subset(qPCR_validation_long,day == "Day7" & target_gene == "DHX38" & sgRNA_group == "Safe harbor")
+dhx38_day7_test <- t.test(dhx38_exp_day7$value,safe_exp_day7$value,
+       alternative = "two.sided")
+dhx38_day7_test$p.value
+
+lpl_exp_day7 <- subset(qPCR_validation_long,day == "Day7" & target_gene == "DHX38" & sgRNA_group == "LPL")
+safe_exp_day7 <- subset(qPCR_validation_long,day == "Day7" & target_gene == "DHX38" & sgRNA_group == "Safe harbor")
+lpl_day7_test <- t.test(lpl_exp_day7$value,safe_exp_day7$value,
+       alternative = "two.sided")
+lpl_day7_test$p.value
+```
+
+```{r}
+t_tests_dhx38 <- data.frame("gene_exp" = rep("DXH38",times = 4),
+                            "sgRNA_target" = c("DXH38","LPL","DXH38","LPL"),
+                            "day" = c("Day4","Day4","Day7","Day7"),
+                            "p_value" = c(dhx38_day4_test$p.value,lpl_day4_test$p.value,dhx38_day7_test$p.value,lpl_day7_test$p.value))
+```
+
+
+
+## CDKN1A expression
+
+```{r}
+## Day4
+dhx38_exp_day4 <- subset(qPCR_validation_long,day == "Day4" & target_gene == "CDKN1A" & sgRNA_group == "DHX38")
+safe_exp_day4 <- subset(qPCR_validation_long,day == "Day4" & target_gene == "CDKN1A" & sgRNA_group == "Safe harbor")
+dhx38_day4_test <- t.test(dhx38_exp_day4$value,safe_exp_day4$value,
+       alternative = "two.sided")
+dhx38_day4_test$p.value
+
+lpl_exp_day4 <- subset(qPCR_validation_long,day == "Day4" & target_gene == "CDKN1A" & sgRNA_group == "LPL")
+safe_exp_day4 <- subset(qPCR_validation_long,day == "Day4" & target_gene == "CDKN1A" & sgRNA_group == "Safe harbor")
+lpl_day4_test <- t.test(lpl_exp_day4$value,safe_exp_day4$value,
+       alternative = "two.sided")
+lpl_day4_test$p.value
+```
+
+```{r}
+## Day7
+dhx38_exp_day7 <- subset(qPCR_validation_long,day == "Day7" & target_gene == "CDKN1A" & sgRNA_group == "DHX38")
+safe_exp_day7 <- subset(qPCR_validation_long,day == "Day7" & target_gene == "CDKN1A" & sgRNA_group == "Safe harbor")
+dhx38_day7_test <- t.test(dhx38_exp_day7$value,safe_exp_day7$value,
+       alternative = "two.sided")
+dhx38_day7_test$p.value
+
+lpl_exp_day7 <- subset(qPCR_validation_long,day == "Day7" & target_gene == "CDKN1A" & sgRNA_group == "LPL")
+safe_exp_day7 <- subset(qPCR_validation_long,day == "Day7" & target_gene == "CDKN1A" & sgRNA_group == "Safe harbor")
+lpl_day7_test <- t.test(lpl_exp_day7$value,safe_exp_day7$value,
+       alternative = "two.sided")
+lpl_day7_test$p.value
+```
+
+```{r}
+t_tests_cdkn1a <- data.frame("gene_exp" = rep("CDKN1A",times = 4),
+                            "sgRNA_target" = c("DXH38","LPL","DXH38","LPL"),
+                            "day" = c("Day4","Day4","Day7","Day7"),
+                            "p_value" = c(dhx38_day4_test$p.value,lpl_day4_test$p.value,dhx38_day7_test$p.value,lpl_day7_test$p.value))
+```
+
+```{r}
+all_tests <- rbind(t_tests_dhx38,t_tests_cdkn1a)
+all_tests <- all_tests %>%
+  mutate("round_pval" = round(p_value,4))
+```
+
+
+## Create geom_signif table
+
+```{r}
+annotation_df_qcpr_validation <- data.frame(group = c(1,2,3,4,
+                                                 5,6,7,8),
+                                       day = c("Day4","Day4","Day7","Day7",
+                                               "Day4","Day4","Day7","Day7"),
+                                       target_gene = c("DHX38","DHX38","DHX38","DHX38",
+                                                       "CDKN1A","CDKN1A","CDKN1A","CDKN1A"),
+                                       sgRNA_group = c("DHX38","LPL","DHX38","LPL",
+                                                 "DHX38","LPL","DHX38","LPL"),
+                                       start = c("DHX38","LPL","DHX38","LPL",
+                                                 "DHX38","LPL","DHX38","LPL"),
+                                       end = c("Safe harbor","Safe harbor","Safe harbor","Safe harbor",
+                                               "Safe harbor","Safe harbor","Safe harbor","Safe harbor"),
+                                       y=c(2.25,3,2.25,3,
+                                          2.75,3.5,3.2,3.8),
+                                       label=c("4.4769e-08","N.S.","3.0327e-05","N.S.",
+                                               "0.00349","N.S.","0.02031","N.S."))
+
+annotation_df_qcpr_validation$target_gene <- factor(annotation_df_qcpr_validation$target_gene,
+                                                    levels = c("DHX38","CDKN1A"))
+```
+
+
+# Plot data
+
+```{r}
+## Option 1
+dot_size <- 3
+dot_alpha <- 0.85
+signif_textsize <- 4
+dodge_position <- 0.9
+
+ggsignif_text_size <- 5
+
+## Set order of sgRNA group
+qPCR_validation_long$sgRNA_group <- factor(qPCR_validation_long$sgRNA_group,
+                                           levels = rev(c("DHX38","LPL","Safe harbor")))
+
+qPCR_validation_long$target_gene <- factor(qPCR_validation_long$target_gene,
+                                           levels = c("DHX38","CDKN1A"))
+
+rnp_qpcr_val_plot <- ggplot(qPCR_validation_long,aes(sgRNA_group,value, fill = sgRNA_group)) +
+   stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(dodge_position),
+               width = .6) +
+    stat_summary(fun = "mean", geom = "bar", color = "black", width = 0.7) +
+    geom_point(color = "black", pch = 21, size = dot_size, alpha = dot_alpha,
+             position = position_dodge(width=dodge_position),
+             show.legend=FALSE) +
+    facet_grid(target_gene ~ day,
+             scales = "free_y") +
+  theme_bw() +
+    theme(legend.position = "top",
+        strip.text=element_text(colour="white"), strip.background=element_rect(fill="grey20"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  labs(x = "",
+       y = "Normalized expression",
+       fill = "sgRNA target") +
+  scale_fill_npg() +
+  geom_signif(data=annotation_df_qcpr_validation,
+              aes(xmin=start, xmax=end, annotations=label, y_position=y),
+              textsize = signif_textsize,
+              manual=TRUE) +
+  scale_y_continuous(limits = c(0,4))
+
+rnp_qpcr_val_plot
+```
+
+
+
+
+```{r}
+figure_height <- 6
+figure_width <- 4
+
+
+save_plot(rnp_qpcr_val_plot,
+          file = here("./figures/Supplementary_Figure_8.tiff"),
+          base_height = figure_height,
+          base_width = figure_width)
+
+```

@@ -1,0 +1,14 @@
+Uploaded_variation	Location	Allele	Consequence	IMPACT	SYMBOL	Gene	Feature_type	Feature	BIOTYPE	EXON	INTRON	HGVSc	HGVSp	cDNA_position	CDS_position	Protein_position	Amino_acids	Codons	Existing_variation	DISTANCE	STRAND	FLAGS	SYMBOL_SOURCE	HGNC_ID	MOTIF_NAME	MOTIF_POS	HIGH_INF_POS	MOTIF_SCORE_CHANGE
+1_56964310_C/CT	1:56964310-56964310	-	intron_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+10_104749705_C/CTT	10:104749705-104749705	-	intron_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+16_75467076_G/GCCCCC	16:75467076-75467076	-	intron_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+18_57851459_G/GCCTCCCCCTCACCAAACTTAA	18:57851459-57851459	-	intergenic_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+19_11192876_C/CT	19:11192876-11192876	-	intergenic_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+2_85807079_G/GA	2:85807079-85807079	-	intron_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+2_216304770_G/GT	2:216304770-216304770	-	upstream_gene_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+20_33686084_C/CTTTTTTTT	20:33686084-33686084	-	intergenic_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+20_33763702_G/GT	20:33763702-33763702	-	intron_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+22_24812694_G/GA	22:24812694-24812694	-	3_prime_UTR_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+22_24812696_T/G	22:24812696-24812696	-	3_prime_UTR_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+3_153856031_A/ATTTTTTTT	3:153856031-153856031	-	intron_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-
+9_22121369_T/TAAAAAAAAAAC	9:22121369-22121369	-	downstream_gene_variant	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-	-

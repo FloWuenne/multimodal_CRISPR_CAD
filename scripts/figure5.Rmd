@@ -1,0 +1,448 @@
+---
+title: "Figure 5"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(cowplot)
+library(ggridges)
+library(ggrepel)
+library(ggridges)
+library(patchwork)
+library(biomaRt)
+library(GenomicRanges)
+library(ggplotify)
+library(viridis)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(qusage)
+library(ggbeeswarm)
+library(ggsignif)
+library(here)
+
+source("./Figure_functions.R")
+
+theme_set(theme_cowplot_custom)
+
+crimson_pos_col <- "#dc143cff"
+crimson_neg_col <- "#eebfa6ff"
+dot_size <- 3
+dot_alpha <- 0.85
+signif_textsize <- 4
+
+ggsignif_text_size <- 5
+```
+
+
+
+# Panel A 
+
+# Panel B
+
+Gene-set enrichment results
+
+```{r}
+fgsea_res <- fread(here("./data/figure5.Supplementary_Table_7.tsv"))
+fgseaResTidy_dds <- fgsea_res %>%
+  subset(experiment == "exp4_sgRNA_10966_DHX38") %>%
+  as_tibble() %>%
+  arrange(desc(NES))
+
+# Show in a nice table:
+fgseaResTidy_dds %>%
+  dplyr::select(-leadingEdge, -ES, -nMoreExtreme) %>%
+  arrange(padj) %>%
+  arrange(desc(NES))
+
+fgseaResTidy_dds$pathway <- factor(fgseaResTidy_dds$pathway,
+                                   levels = rev(unique(fgseaResTidy_dds$pathway)))
+
+fgseaResTidy_dds_sub <- fgseaResTidy_dds %>%
+  subset(padj < 0.05) %>%
+  mutate("pathway_mod" = gsub("HALLMARK_","",pathway)) %>%
+  arrange(desc(NES)) %>%
+  subset(NES >= 1 | NES <= -1)
+
+fgseaResTidy_dds_sub$pathway_mod <- factor(fgseaResTidy_dds_sub$pathway_mod,
+                                   levels = rev(unique(fgseaResTidy_dds_sub$pathway_mod)))
+
+panel_b <- ggplot(fgseaResTidy_dds_sub,aes(NES,pathway_mod)) +
+  geom_bar(stat = "identity", color = "black", fill = "darkgrey") + 
+  scale_y_discrete(position = "right") +
+  labs(x = "NES",
+       y = "Hallmark pathways")
+
+panel_b
+
+save_plot(panel_b,
+          filename = here("./plots/Figure_5.panelB.tiff"),
+          base_height = 6,
+          base_width = 8)
+```
+
+
+# Panel C
+
+Manual Figure for CRIMSON experimental design
+
+# Panel D
+
+CRIMSON survival results for DHX38
+
+```{r}
+## read data
+crimson_quant <- fread(here("./data/figure5.DHX38_CRIMSON_FACS_analysis..tsv"))
+```
+
+## Barplot of % positive CRIMSON cells over time
+
+```{r}
+crimson_quant_mod <- crimson_quant %>%
+  gather(day,percentage_cells,Day2:Day7) %>%
+  subset(sgRNA != "NT") %>% ## Remove NT, as all values are 0
+  subset(assay == "sorting") %>%
+  mutate("sgRNA_group" = gsub("Safe","Safe harbor",sgRNA_group))
+
+crimson_quant_mod$sgRNA_group <- factor(crimson_quant_mod$sgRNA_group,
+                                              levels = c("Safe harbor","DHX38"))
+
+crimson_barplot_stat <- ggplot(crimson_quant_mod,aes(sgRNA_group,percentage_cells,
+                                                   fill = sgRNA_group,
+                                                   group = sgRNA_group)) +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(0.95),
+               width = .5) +
+  stat_summary(fun = "mean", geom = "bar", position = position_dodge(0.95),
+               color = "black") +
+  geom_beeswarm(color = "black", aes(fill = sgRNA_group), pch = 21, size = dot_size, alpha = dot_alpha) + 
+  scale_fill_manual(values = c("white","darkgrey")) +
+  facet_grid(. ~ day) + 
+  theme(legend.position = "none",
+        strip.text=element_text(colour="white"), strip.background=element_rect(fill="grey20"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  labs(x = "",
+       y = expression(bold(paste("% CRIMSON"^"+"," teloHAEC")))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
+
+crimson_barplot_stat
+```
+
+
+# Panel E: INDEL analysis
+
+```{r}
+indel_freq <- fread(here("./data/figure5.DHX38_INDEL_analysis.tsv"))
+```
+
+```{r}
+indel_freq_statst <- indel_freq %>%
+  subset(!is.na(indel_percentage)) 
+
+avg_indels <- indel_freq_statst %>%
+  group_by(day) %>%
+  summarize("mean_indel" = mean(indel_percentage))
+
+indel_freq_plot <- ggplot(indel_freq_statst,aes(day,indel_percentage,
+                                                   group = day)) +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               width = .5) +
+  stat_summary(fun = "mean", geom = "bar", position = position_dodge(0.95),
+               color = "black", fill = "darkgrey") +
+  geom_point(color = "black", fill = "darkgrey", pch = 21, size = dot_size) +
+  labs(x = "",
+       y = "INDEL frequency (%)") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
+
+indel_freq_plot
+```
+
+
+
+# Panel F : qPCR
+
+```{r}
+dhx38_crimson_qPCR <- fread(here("./data/figure5.DHX38_CRIMSON_FACS_analysis.qPCR.tsv"))
+dhx38_crimson_qPCR <- dhx38_crimson_qPCR %>%
+  dplyr::select(-Mean,-SEM) %>%
+  subset(r1 != "") %>%
+  subset(FACS_fraction != "X") %>%
+  gather(replicate,value,r1:r3,-c(target_gene,sample,day,FACS_fraction)) %>%
+  subset(gene_group == "gene") %>%
+  subset(target_gene != "Cas9") %>%
+  mutate("cell_group" = if_else(FACS_fraction == "Bottom","neg","pos")) %>%
+  mutate("target_gene" = if_else(target_gene == "p21","CDKN1A",target_gene)) 
+
+## Set order for plotting
+dhx38_crimson_qPCR$sgRNA_group <- factor(dhx38_crimson_qPCR$sgRNA_group,
+                                         levels = c("Safe harbor","DHX38"))
+
+dhx38_crimson_qPCR$cell_group <- factor(dhx38_crimson_qPCR$cell_group,
+                                         levels = c("neg","pos"))
+
+
+dhx38_crimson_qPCR$target_gene <- factor(dhx38_crimson_qPCR$target_gene,
+                                         levels = c("DHX38","CDKN1A"))
+```
+
+```{r}
+annotation_df_qcpr_dhx38 <- data.frame(day = c("Day2","Day2","Day4","Day4","Day7","Day7"),
+                                       gene = c("DHX38","DHX38","DHX38","DHX38","DHX38","DHX38"),
+                                       group = c(1,2,3,4,5,6),
+                                       start_num = c(1.25,1.75,1.25,1.75,1.25,1.75),
+                                       end_num = c(2.25,2.25,2.25,2.25,2.25,2.25),
+                                       y=c(3.75,3,3.75,3,3.75,3),
+                                       CRIMSON_pop_start =                                    c("CRIMSON_positive","CRIMSON_negative","CRIMSON_positive","CRIMSON_negative","CRIMSON_positive","CRIMSON_negative"),
+                                       CRIMSON_pop_end =
+c("CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive"),
+label=c("N.S.","N.S.","0.0206","0.0276","0.0005","0.0471"),
+cell_group = c("pos","pos","pos","pos","pos","pos"))
+
+annotation_df_qcpr_p21 <- data.frame(day = c("Day2","Day2","Day4","Day4","Day7","Day7"),
+                                       gene = c("CDKN1A","CDKN1A","CDKN1A","CDKN1A","CDKN1A","CDKN1A"),
+                                       group = c(1,2,3,4,5,6),
+                                       start_num = c(1.25,1.75,1.25,1.75,1.25,1.75),
+                                       end_num = c(2.25,2.25,2.25,2.25,2.25,2.25),
+                                       y=c(10,7,14,11,19,16),
+                                       CRIMSON_pop_start =                                    c("CRIMSON_positive","CRIMSON_negative","CRIMSON_positive","CRIMSON_negative","CRIMSON_positive","CRIMSON_negative"),
+                                       CRIMSON_pop_end =
+c("CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive"),
+label=c("0.0028","0.0337","0.0056","0.0042","0.0009","0.0001"),
+cell_group = c("pos","pos","pos","pos","pos","pos"))
+
+
+annotation_df_qcpr_all <- data.frame(day = c("Day2","Day2","Day4","Day4","Day7","Day7",
+                                             "Day2","Day2","Day4","Day4","Day7","Day7"),
+                                       gene = c("DHX38","DHX38","DHX38","DHX38","DHX38","DHX38",
+                                                "CDKN1A","CDKN1A","CDKN1A","CDKN1A","CDKN1A","CDKN1A"),
+                                       group = c(1,2,3,4,5,6,7,8,9,10,11,12),
+                                       start_num = c(1.25,1.75,1.25,1.75,1.25,1.75,
+                                                     1.25,1.75,1.25,1.75,1.25,1.75),
+                                       end_num = c(2.25,2.25,2.25,2.25,2.25,2.25,
+                                                   2.25,2.25,2.25,2.25,2.25,2.25),
+                                       y=c(3.75,3,3.75,3,3.75,3,
+                                           9,6,11,9,17,15),
+                                       CRIMSON_pop_start =                                    c("CRIMSON_positive","CRIMSON_negative","CRIMSON_positive","CRIMSON_negative","CRIMSON_positive","CRIMSON_negative",
+                                                                                                "CRIMSON_positive","CRIMSON_negative","CRIMSON_positive","CRIMSON_negative","CRIMSON_positive","CRIMSON_negative"),
+                                       CRIMSON_pop_end =
+c("CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive",
+  "CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive"),
+label=c("N.S.","N.S.","*","*","***","*",
+        "N.S.","N.S.","*","*","***","*"),
+cell_group = c("pos","pos","pos","pos","pos","pos",
+               "pos","pos","pos","pos","pos","pos"))
+```
+
+```{r}
+crimson_qPCR_stat_dxh38 <- ggplot(subset(dhx38_crimson_qPCR,target_gene == "DHX38"),
+                                  aes(sgRNA_group,value,
+                                                   fill = cell_group,
+                                                   group = cell_group)) +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(0.95),
+               width = .5) +
+  stat_summary(fun = "mean", geom = "bar", position = position_dodge(0.95),
+               color = "black") +
+  geom_point(color = "black", pch = 21, size = dot_size, alpha = dot_alpha,
+             position = position_dodge(width=0.95),
+             show.legend=FALSE) +
+  # scale_fill_manual("FACS population",
+  #                   labels = c(expression("CRIMSON"^-{}),expression("CRIMSON"^+{})),
+  #                   values = c("white","darkgrey")) +
+  scale_fill_manual("CRIMSON population",
+                    labels = c(expression("CRIMSON"^-{}),expression("CRIMSON"^+{})),
+                    values = c(crimson_neg_col,crimson_pos_col)) +
+  facet_grid(target_gene ~ day,
+             scales = "free_y") + 
+  theme(legend.position = "top",
+        strip.text=element_text(colour="white"), strip.background=element_rect(fill="grey20"),
+        axis.text.x = element_blank())  +
+  labs(x = "",
+       y = "Normalized expression") + 
+  geom_signif(data=annotation_df_qcpr_dhx38,
+              aes(xmin=start_num, xmax=end_num, annotations=label, y_position=y,group = group),
+              textsize = signif_textsize,
+              manual=TRUE) +
+  scale_y_continuous(limits = c(0,5),expand = expansion(mult = c(0, 0.05)))
+
+crimson_qPCR_stat_dxh38
+
+### CDKN1A plot
+crimson_qPCR_stat_p21 <- ggplot(subset(dhx38_crimson_qPCR,target_gene == "CDKN1A"),
+                                  aes(sgRNA_group,value,
+                                                   fill = cell_group,
+                                                   group = cell_group)) +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(0.95),
+               width = .5) +
+  stat_summary(fun = "mean", geom = "bar", position = position_dodge(0.95),
+               color = "black") +
+  geom_point(color = "black", pch = 21, size = dot_size,alpha = dot_alpha,
+             position = position_dodge(width=0.95),
+             show.legend=FALSE) +
+  # scale_fill_manual("FACS population",
+  #                   labels = c(expression("CRIMSON"^-{}),expression("CRIMSON"^+{})),
+  #                   values = c("white","darkgrey")) +
+  scale_fill_manual("CRIMSON population",
+                    labels = c(expression("CRIMSON"^-{}),expression("CRIMSON"^+{})),
+                    values = c(crimson_neg_col,crimson_pos_col)) +
+  facet_grid(target_gene ~ day,
+             scales = "free_y") + 
+  theme(legend.position = "none",
+        strip.text=element_text(colour="white"), strip.background=element_rect(fill="grey20"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank())  +
+  labs(x = "",
+       y = "Normalized expression") + 
+  geom_signif(data=annotation_df_qcpr_p21,
+              aes(xmin=start_num, xmax=end_num, annotations=label, y_position=y,group = group),
+              textsize = signif_textsize,
+              manual=TRUE) +
+  scale_y_continuous(limits = c(0,21),expand = expansion(mult = c(0, 0.05)))
+
+crimson_qPCR_stat_p21
+
+```
+
+
+
+
+
+# Panel G - Beta Gal FACS
+
+```{r}
+## read data
+crimson_betagal_quant <- fread(here("./data/figure5.DHX38_CRIMSON_FACS_analysis.betaGal.tsv"))
+crimson_betagal_quant_mod <- crimson_betagal_quant %>%
+  subset(Condition != "NT") %>%
+  gather(fraction,percentage_cells,Bottom,Top) %>%
+  mutate("fraction" = if_else(condition_group != "positive control",fraction,
+                             if_else(fraction == "Bottom","control","remove"))) %>%
+  subset(fraction != "remove") %>%
+  mutate("CRIMSON_pop" = if_else(fraction == "Bottom","CRIMSON_negative",
+                                 if_else(fraction == "Top","CRIMSON_positive","control"))) %>%
+  mutate("test_group" = if_else(condition_group == "positive control","Etoposide",
+                                if_else(condition_group == "Safe harbor","Safe harbor","DHX38")))
+```
+
+
+```{r}
+test_results_crimson_betagal_quant_mod <- crimson_betagal_quant_mod %>%
+  subset(!test_group %in% c("Etoposide","Safe harbor")) %>%
+  group_by(test_group,day) %>%
+  spread(CRIMSON_pop,percentage_cells) %>%
+  summarise(CRIMSON_negative = list(CRIMSON_negative),
+            CRIMSON_positive = list(CRIMSON_positive)) %>%
+  group_by(test_group,day) %>%
+  mutate(p_value = t.test(unlist(CRIMSON_negative), unlist(CRIMSON_positive), paired = FALSE, alternative = "two.sided")$p.value,
+         t_value = t.test(unlist(CRIMSON_negative), unlist(CRIMSON_positive), paired = FALSE, alternative = "two.sided")$statistic)
+
+
+annotation_df <- data.frame(day = c("Day2","Day2","Day4","Day4","Day7","Day7"),
+                            group = c(1,2,3,4,5,6),
+                            start_num = c(2.25,2.75,2.25,2.75,2.25,2.75),
+                            end_num = c(3.25,3.25,3.25,3.25,3.25,3.25),
+                            y=c(92,82.5,92,82.5,92,82.5),
+                            start=c("Safe harbor", "DHX38","Safe harbor", "DHX38","Safe harbor", "DHX38"),
+                            end=c("DHX38", "DHX38","DHX38", "DHX38","DHX38", "DHX38"),
+                            CRIMSON_pop_start = c("CRIMSON_negative","CRIMSON_positive","CRIMSON_negative","CRIMSON_positive","CRIMSON_negative","CRIMSON_positive"),
+                            CRIMSON_pop_end = c("CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive"),
+                            CRIMSON_pop = c("CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive","CRIMSON_positive"),
+                            label=c("N.S.","N.S.","0.0014", "0.0003","0.0020","0.0002"))
+```
+
+
+
+
+```{r}
+crimson_betagal_quant_mod$CRIMSON_pop <- factor(crimson_betagal_quant_mod$CRIMSON_pop,
+                                              levels = c("control","CRIMSON_negative","CRIMSON_positive"))
+
+crimson_betagal_quant_mod$test_group <- factor(crimson_betagal_quant_mod$test_group,
+                                              levels = c("Etoposide","Safe harbor","DHX38"))
+
+crimson_betagal_plot <- ggplot(crimson_betagal_quant_mod,aes(test_group,percentage_cells,
+                                                   fill = CRIMSON_pop,
+                                                   group = CRIMSON_pop)) +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(0.95),
+               width = .4) +
+  stat_summary(fun = "mean", geom = "bar", position =  position_dodge2(padding = 0, preserve = "single"),
+               color = "black") +
+  geom_point(color = "black", pch = 21, size = dot_size, alpha = dot_alpha,
+             position = position_dodge(width=0.9),
+             show.legend=FALSE) +
+  scale_fill_manual("CRIMSON population",
+                    labels = c("Positive control",expression("CRIMSON"^-{}),expression("CRIMSON"^+{})),
+                    values = c("white",crimson_neg_col,crimson_pos_col)) +
+  facet_grid(. ~ day,
+             scales = "free",space = "free_x") + 
+  # scale_fill_manual("CRIMSON population",
+  #                   labels = c(expression("CRIMSON"^-{}),expression("CRIMSON"^+{})),
+  #                   values = c(crimson_neg_col,crimson_pos_col)) +
+  theme(legend.position = "top",
+        strip.text=element_text(colour="white"), strip.background=element_rect(fill="grey20"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  labs(x = "",
+       y = expression(bold(paste("Percentage of SA-",beta,"Gal"^"+"," teloHAEC")))) +
+  geom_signif(data=annotation_df,
+              aes(xmin=start_num, xmax=end_num, annotations=label, y_position=y,group = group),
+              textsize = signif_textsize,
+              manual=TRUE) +
+  scale_y_continuous(limits = c(0,100),
+                     expand = expansion(mult = c(0, 0.05)))
+
+crimson_betagal_plot
+```
+
+
+
+# Merge pl# Merge plots to one file
+
+
+```{r}
+top_row <- (crimson_barplot_stat + theme(plot.margin = margin(0.25, 1, 0.25, 0.25, "cm"))| 
+                   indel_freq_plot + theme(plot.margin = margin(0.25, 0.25, 0.25, 1, "cm"))) +
+    plot_layout(widths = c(2, 1),
+              ncol = 2)
+
+middle_row <- ((crimson_qPCR_stat_dxh38 / crimson_qPCR_stat_p21) + theme(plot.margin = margin(0.25, 1, 0.25, 0.25, "cm"))) | crimson_betagal_plot + theme(plot.margin = margin(0.25, 0.25, 0.25, 1, "cm"))
+
+joined_plots <- 
+  top_row / 
+  middle_row +
+  plot_layout(heights = c(1, 1.5, 1),
+              nrow = 2) +
+    plot_annotation(tag_levels = list(c(" "," "," "," "))) & 
+  theme(plot.tag = element_text(size = 24))
+
+  
+save_plot(joined_plots,
+          filename = "./plots/Figure_5.panels_DG.tiff",
+          base_height = 12,
+          base_width = 18)
+
+joined_plots
+```
+
+

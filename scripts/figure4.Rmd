@@ -1,0 +1,270 @@
+---
+title: "Figure 4"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(cowplot)
+library(ggridges)
+library(ggrepel)
+library(ggridges)
+library(patchwork)
+library(biomaRt)
+library(GenomicRanges)
+library(ggplotify)
+library(viridis)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(qusage)
+library(ggbeeswarm)
+library(here)
+
+source("./Figure_functions.R")
+
+theme_set(theme_cowplot_custom)
+```
+
+# Panel A 
+
+Done in pyGenomeTracks, see script [./pyGenomeTracks_scripts/plot_FES_FURIN.sh](./pyGenomeTracks_scripts/plot_FES_FURIN.sh)
+
+Colocalization analysis for candidate variants in DHX38 (CAD candidate) and HPR (LDL-C) can be found in [figure4.coloc_analysis.DHX38.Rmd](figure4.coloc_analysis.DHX38.Rmd)
+
+# Panel B
+
+```{r}
+all_assays <- fread(here("./data/all_validations.deseq2_de_results.tsv"))
+```
+
+
+```{r}
+## Load TSS information for all genes
+tss_info <- fread(here("./references/RefSeqCurated.170308.bed.CollapsedGeneBounds.TSS500bp.bed"))
+
+colnames(tss_info) <- c("chr","start","end","genes","misc","strand")
+
+tss_info <- tss_info %>%
+  mutate("tss_start_site" = start + 250) %>%
+  mutate("gene" = genes)
+```
+
+
+```{r}
+## subset for only FES/FURIN guide
+guides_used <- c("sgRNA_06939")
+
+## Define chromosome and position for DHX38 and FES
+sgRNA_info <- fread(here("./data/sgRNA_information_detailed.txt"))
+sgRNA_info <- sgRNA_info %>%
+  subset(ID %in% guides_used) %>%
+  dplyr::select(ID,sgRNA_Sequence,Chromosome,Guide_Start_Coordinate,Guide_End_Coordinate,DSB_Coordinate) %>%
+  mutate("Chromosome" = paste("chr",Chromosome,sep="")) 
+```
+
+
+```{r}
+fes_furin <- all_assays %>%
+  subset(experiment == "exp1_sgRNA_06939_FES_FURIN")
+
+## Filter out genes not expressed or don't have a p-value
+res_fes_sub <- fes_furin %>%
+  subset(baseMean > 0) %>%
+  na.omit()
+
+res_fes_anno <- full_join(res_fes_sub,tss_info, by = "gene")
+
+res_fes_anno <- res_fes_anno %>%
+  na.omit()
+
+## Get all cis effects
+fes_sgrna <- subset(sgRNA_info,ID == "sgRNA_06939")
+
+res_fes_cis <- res_fes_anno %>%
+  subset(chr %in% fes_sgrna$Chromosome) %>%
+  mutate("distance_to_sgrna_kb" = abs(tss_start_site - fes_sgrna$DSB_Coordinate)/1000,
+         "direction" = if_else(fes_sgrna$DSB_Coordinate > tss_start_site,"5_prime","3_prime")
+         )
+
+res_fes_cis <- res_fes_cis %>%
+  mutate("rank" = 1:nrow(res_fes_cis)) %>%
+  mutate("gene_label" = if_else(genes %in% c("FES","FURIN"),genes,"")) %>%
+  arrange(distance_to_sgrna_kb) %>%
+  subset(distance_to_sgrna_kb < 5000)
+```
+
+
+```{r}
+## FES
+panel_b <- de_cis_plot(res_fes_cis) +
+  geom_label_repel(size = 5,fontface = "italic") +
+  labs(title = "Chromosome 15 : sgRNA_06939")
+
+panel_b
+```
+
+## Insert panel for C
+
+```{r}
+tximport_data <- readRDS(here("./data/multimodal_CRISPR_CAD..kallisto.gene_level.rds"))
+abundance <- tximport_data$abundance
+counts <- fread(here("./data/GSE165924_teloHAEC_CRISPR.RNAseq.counts.tsv.gz"))
+```
+
+```{r}
+cand_exp <- as.data.frame(subset(abundance,rownames(abundance) %in% c("FES","FURIN")))
+cand_exp <- cand_exp[,c("sg_06939_1","sg_06939_2",
+                        "MS2_safe_002_2_3","MS2_safe_002_3")]
+
+cand_exp_long <- cand_exp %>%
+  mutate("gene" = rownames(cand_exp)) %>%
+  gather(sample,exp,-gene) %>%
+  mutate("group" = if_else(grepl("06939",sample),"sgRNA_06939","Safe harbor")) %>%
+  subset(gene %in% c("FES","FURIN")) %>%
+  group_by(gene,group)
+
+cand_exp_long$group <- factor(cand_exp_long$group,
+                                     levels = c("Safe harbor","sgRNA_06939"))
+cand_exp_long$gene <- factor(cand_exp_long$gene,
+                                    levels = c("FURIN","FES"))
+
+cand_exp_long_exp_plot <- ggplot(cand_exp_long,aes(gene,exp,
+                                                      fill = group,
+                                                      group = group)) +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(0.95),
+               width = .5) +
+  stat_summary(fun = "mean", geom = "bar", position = position_dodge(0.95),
+               color = "black") +
+   geom_point(color = "black", pch = 21, size = 2, alpha = 0.75,
+             position = position_dodge(width=0.9),
+             show.legend=FALSE) +
+  # geom_point(position = position_dodge(1),
+  #            size = 2) +
+  scale_fill_manual("sgRNA",
+                    values = c("white","darkgrey")) +
+  scale_x_discrete("", labels=expression(bold(italic(FURIN)), bold(italic(FES)))) +
+  coord_flip() +
+  labs(x = "",
+       y = "TPM") +
+      theme(legend.position = "right",
+          legend.title = element_text(colour="black", 
+                                      face="bold"),
+          axis.text.y = element_text(colour="black", 
+                                      face="bold"),
+          axis.title.x = element_text(colour="black", 
+                                      face="bold")
+      ) +
+      scale_y_continuous(
+    # don't expand y scale at the lower end
+    expand = expansion(mult = c(0, 0.05)))
+cand_exp_long_exp_plot
+```
+
+
+```{r}
+panel_b <- panel_b + annotation_custom(ggplotGrob(cand_exp_long_exp_plot), xmin = 500, xmax = 2500, 
+                       ymin = 90, ymax = 160) +
+  theme(panel.border = element_rect(colour = "black", fill=NA, size=1))
+
+panel_b
+```
+
+# Panel C
+
+```{r}
+be_results <- fread(here("./data/figure4.base_editing.FES_FURIN.tsv"))
+be_results$Expression <- as.numeric(be_results$Expression)
+dot_size <- 3
+dot_alpha <- 0.85
+signif_textsize <- 4
+## Do the significance tests
+fes_het <- subset(be_results,Genotype == "Het" & Target == "FES")
+fes_het_test <- t.test(subset(fes_het,Treatment == "Untreated")$Expression ,subset(fes_het,Treatment == "TNFa")$Expression,
+                       alternative = "two.sided")
+fes_treat_across <- subset(be_results,Treatment == "TNFa" & Target == "FES")
+fes_treat_across_test <- t.test(subset(fes_treat_across,Genotype == "Hom")$Expression ,subset(fes_treat_across,Genotype == "Het")$Expression,
+                       alternative = "two.sided")
+fes_untreat_vs_treat_across <- subset(be_results,Target == "FES")
+fes_untreat_vs_treat_across_test <- t.test(subset(fes_untreat_vs_treat_across,Genotype == "Hom" & Treatment == "Untreated")$Expression ,subset(fes_untreat_vs_treat_across,Genotype == "Hom" & Treatment == "TNFa")$Expression,
+                       alternative = "two.sided")
+furin_treat_hom <- subset(be_results,Genotype == "Hom" & Target == "FURIN")
+furin_treat_hom_test <- t.test(subset(furin_treat_hom,Treatment == "Untreated")$Expression ,subset(furin_treat_hom,Treatment == "TNFa")$Expression,
+                       alternative = "two.sided")
+furin_treat_het <- subset(be_results,Genotype == "Het" & Target == "FURIN")
+furin_treat_het_test <- t.test(subset(furin_treat_het,Treatment == "Untreated")$Expression ,subset(furin_treat_het,Treatment == "TNFa")$Expression,
+                       alternative = "two.sided")
+## Geom signif table for significance bars in plot
+annotation_df_qcpr_be <- data.frame(Target = c("FES","FES","FURIN","FURIN"),
+                                    group = c(1,2,3,4),
+                                    start_num = c(0.75,1.75,0.75,1.75),
+                                    end_num = c(1.25,2.25,1.25,2.25),
+                                    y=c(1.8,1.6,1.8,1.8),
+                                    Treatment = c("Untreated","TNFa","Untreated","Untreated"),
+                                    label=c(round(fes_het_test$p.value,3),
+                                            round(fes_untreat_vs_treat_across_test$p.value,3),
+                                            round(furin_treat_het_test$p.value,6),
+                                            round(furin_treat_hom_test$p.value,3)
+                                             ))
+## Set order for treatment and genotypes
+be_results$Treatment <- factor(be_results$Treatment,
+                               levels = c("Untreated","TNFa"))
+be_results$Genotype <- gsub("Hom","G/G",be_results$Genotype)
+be_results$Genotype <- gsub("Het","A/G",be_results$Genotype)
+be_results$Genotype <- factor(be_results$Genotype,
+                              levels = c("A/G","G/G"))
+## Plot the plot
+be_exp_plot <- ggplot(be_results,aes(Genotype,Expression,
+                                     fill = Treatment,
+                                     group = Treatment)) +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(0.95),
+               width = .5) +
+  stat_summary(fun = "mean", geom = "bar", position = position_dodge(0.95),
+               color = "black") +
+  geom_point(color = "black", pch = 21, size = dot_size, alpha = dot_alpha,
+             position = position_dodge(width=0.95),
+             show.legend=FALSE) +
+  scale_fill_manual(labels = c("Untreated",expression(paste("TNF",alpha,sep=""))),values = c("white","darkgrey")) +
+  facet_wrap(~ Target) +
+  theme(legend.position = "top",
+        strip.text=element_text(colour="white"), strip.background=element_rect(fill="grey20"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  +
+  labs(x = "Genotype rs12906125",
+       y = "Relative expression") +
+  geom_signif(data=annotation_df_qcpr_be,
+              aes(xmin=start_num, xmax=end_num, annotations=label, y_position=y,group = group),
+              textsize = signif_textsize,
+              manual=TRUE) + 
+  scale_y_continuous(limits = c(0,1.9))
+  
+be_exp_plot
+```
+
+
+# Compile & save plot
+
+```{r}
+figure_4 <-  (panel_b  + theme(plot.margin = margin(0.25, 1, 0.25, 0.25, "cm")) | be_exp_plot + theme(plot.margin = margin(0.25, 0.25, 0.25, 1, "cm"))) + 
+  plot_layout(ncol = 2,
+              widths = c(1.5,1)
+              ) +
+  theme(plot.tag = element_text(size = 24))
+plot_width <- 16
+plot_height <- 6
+
+save_plot(figure_4,
+          filename = here("./plots/Figure_4.pdf"),
+          base_height = plot_height,
+          base_width = plot_width)
+```

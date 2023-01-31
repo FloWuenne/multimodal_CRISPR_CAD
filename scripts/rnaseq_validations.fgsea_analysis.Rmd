@@ -1,0 +1,253 @@
+---
+title: '2: Gene set enrichment analysis'
+author: "Florian Wuennemann"
+date: "5/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(cowplot)
+library(data.table)
+library(fgsea)
+library(DESeq2)
+library(pheatmap)
+```
+
+
+
+# Load results from main analysis
+
+```{r}
+dds <- readRDS(file = here("./data/all_validations.deseq2_object.rds"))
+```
+
+
+# Gene set enrichment analysis
+
+Now let's see, how the differentially expressed genes are related and what kind of pathways we will discover.
+
+Im gonna use fgsea for gene set enrichment analysis and follow the tutorial by Stephen Turner:
+
+https://stephenturner.github.io/deseq-to-fgsea/
+
+```{r}
+## Load pahtways into a named list
+pathways.hallmark <- gmtPathways(here("./references/h.all.v7.0.symbols.gmt"))
+```
+
+```{r}
+pathways.hallmark %>% 
+  head() %>% 
+  lapply(head)
+```
+
+
+# GSEA analysis for each experiment
+
+```{r}
+all_contrasts <- list(c("experiment_id","exp1_sgRNA_06939_FES_FURIN","exp1_safe_FES_FURIN"),
+                      c("experiment_id","exp2_sgRNA_06147_ZNF664","exp2_safe_ZNF664_CNNM2"),
+                      c("experiment_id","exp3_sgRNA_25344_CNNM2","exp2_safe_ZNF664_CNNM2"),
+                      c("experiment_id","exp4_sgRNA_10966_DHX38","exp4_safe_DHX38"),
+                      c("experiment_id","exp5_sgRNA_02249_MAT2A","exp5_safe_MAT2A"))
+
+all_gsea_res <- list()
+for(this_contrast in all_contrasts){
+  print(this_contrast)
+  res_dds <- as.data.frame(results(dds, contrast = this_contrast))
+
+  res_dds$gene <- rownames(res_dds)
+  
+  res_stat_dds <- res_dds %>%
+    dplyr::select(gene, stat) %>%
+    na.omit() %>%
+    distinct() %>%
+    group_by(gene) %>%
+    summarize(stat=mean(stat))
+  res_stat_dds
+
+   ranks_dds <- deframe(res_stat_dds)
+   fgseaRes_dds <- fgsea(pathways.hallmark, stats=ranks_dds, nperm=100000)
+   fgseaResTidy_dds <- fgseaRes_dds %>%
+     as_tibble() %>% 
+     arrange(desc(NES))
+   
+   all_gsea_res[[this_contrast[[2]]]] <- rbind(fgseaResTidy_dds)
+}
+
+```
+
+## Upset plot
+
+```{r}
+## Upset plot
+upset_Rlist_de_genes <- list()
+
+## Check assays for overlap in significant loci based on locfdr
+for(this_exp in names(all_gsea_res)){
+  print(this_exp)
+  
+  this_exp_genes <- all_gsea_res[[this_exp]] %>%
+    subset(padj <= 0.05)
+  
+  upset_Rlist_de_genes[[this_exp]] <- c(as.character(this_exp_genes$pathway))
+}
+```
+
+
+```{r}
+## The two functions fromList and get_intersect_members originate from this github post:
+  ## https://github.com/hms-dbmi/UpSetR/issues/85
+  ## Function to run UpsetR with a list of named vectors
+  fromList <- function (input) {
+    # Same as original fromList()...
+    elements <- unique(unlist(input))
+    data <- unlist(lapply(input, function(x) {
+      x <- as.vector(match(elements, x))
+    }))
+    data[is.na(data)] <- as.integer(0)
+    data[data != 0] <- as.integer(1)
+    data <- data.frame(matrix(data, ncol = length(input), byrow = F))
+    data <- data[which(rowSums(data) != 0), ]
+    names(data) <- names(input)
+    # ... Except now it conserves your original value names!
+    row.names(data) <- elements
+    return(data)
+  }
+
+get_intersect_members <- function (x, ...){
+  require(dplyr)
+  require(tibble)
+  x <- x[,sapply(x, is.numeric)][,0<=colMeans(x[,sapply(x, is.numeric)],na.rm=T) & colMeans(x[,sapply(x, is.numeric)],na.rm=T)<=1]
+  n <- names(x)
+  x %>% rownames_to_column() -> x
+  l <- c(...)
+  a <- intersect(names(x), l)
+  ar <- vector('list',length(n)+1)
+  ar[[1]] <- x
+  i=2
+  for (item in n) {
+    if (item %in% a){
+      if (class(x[[item]])=='integer'){
+        ar[[i]] <- paste(item, '>= 1')
+        i <- i + 1
+      }
+    } else {
+      if (class(x[[item]])=='integer'){
+        ar[[i]] <- paste(item, '== 0')
+        i <- i + 1
+      }
+    }
+  }
+  do.call(filter_, ar) %>% column_to_rownames() -> x
+  return(x)
+}
+
+```
+
+
+```{r}
+upset(fromList(upset_Rlist_de_genes), order.by = "freq")
+```
+
+
+```{r}
+all_shared <- get_intersect_members(fromList(upset_Rlist_de_genes),names(all_gsea_res))
+```
+
+## Heatmap
+
+### NES
+
+```{r}
+all_gsea_res_df <- dplyr::bind_rows(all_gsea_res, .id = 'experiment')
+```
+
+```{r}
+all_gsea_res_df_sub <- all_gsea_res_df %>%
+  dplyr::select(experiment,pathway,NES) %>%
+  spread(pathway,NES)
+
+experiment <- all_gsea_res_df_sub$experiment
+all_gsea_res_df_sub <- all_gsea_res_df_sub[,-1]
+all_gsea_res_df_sub <- as.matrix(all_gsea_res_df_sub)
+rownames(all_gsea_res_df_sub) <- experiment
+```
+
+```{r}
+pheatmap(t(all_gsea_res_df_sub))
+```
+
+### padj
+
+
+```{r}
+all_gsea_res_df_sub <- all_gsea_res_df %>%
+  dplyr::select(experiment,pathway,padj) %>%
+  mutate("padj" = -log10(padj)) %>%
+  spread(pathway,padj)
+
+experiment <- all_gsea_res_df_sub$experiment
+all_gsea_res_df_sub <- all_gsea_res_df_sub[,-1]
+all_gsea_res_df_sub <- as.matrix(all_gsea_res_df_sub)
+rownames(all_gsea_res_df_sub) <- experiment
+```
+
+```{r}
+library(viridis)
+pheatmap(t(all_gsea_res_df_sub),
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         show_rownames = TRUE,
+         show_colnames = TRUE,
+         color             = magma(100),
+         border_color      = "black")
+```
+
+
+## Rank genes
+
+```{r}
+res_dds <- as.data.frame(results(dds))
+res_dds$gene <- rownames(res_dds)
+
+res_stat_dds <- res_dds %>% 
+  dplyr::select(gene, stat) %>% 
+  na.omit() %>% 
+  distinct() %>% 
+  group_by(gene) %>% 
+  summarize(stat=mean(stat))
+res_stat_dds
+
+ranks_dds <- deframe(res_stat_dds)
+```
+
+
+```{r}
+fgseaRes_dds <- fgsea(pathways=pathways.hallmark, stats=ranks_dds, nperm=100000)
+```
+
+```{r}
+fgseaResTidy_dds <- fgseaRes_dds %>%
+  as_tibble() %>%
+  arrange(desc(NES))
+
+# Show in a nice table:
+fgseaResTidy_dds %>% 
+  dplyr::select(-leadingEdge, -ES, -nMoreExtreme) %>% 
+  arrange(padj) %>% 
+  DT::datatable()
+```
+
+
+```{r}
+## How many pathways are significant and which ones?
+sig_pathways_dds <- fgseaResTidy_dds %>%
+  subset(padj <= 0.05)
+
+## Nr of sig pathways
+length(unique((sig_pathways_dds$pathway)))
+```

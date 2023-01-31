@@ -1,0 +1,185 @@
+---
+title: "Supplementary Figure 5"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(cowplot)
+library(ggridges)
+library(ggrepel)
+library(ggridges)
+library(RColorBrewer)
+library(superheat)
+library(viridis)
+library(pheatmap)
+library(ggplotify)
+library(patchwork)
+library(ggupset)
+library(here)
+
+source("./Figure_functions.R")
+
+theme_set(theme_cowplot_custom)
+
+gloabl_alpha <- 0.8
+global_legend_title <- "Cas9 variant"
+```
+
+# Supplementary Figure 5
+
+## Panel A
+
+Panel A shows the Gini index distribution across all samples
+
+```{r}
+mageck_qc <- fread(here("./data/supp_figure5.qc_mageck.tsv"))
+mageck_qc_sub <- mageck_qc %>%
+  subset(FACS_target != "plasmid") %>%
+  subset(FACS_target != "CD31") %>%
+  mutate("FACS_target" = if_else(FACS_target == "ICAM","ICAM1",
+                                 if_else(FACS_target == "VCAM","VCAM1",FACS_target))) %>%
+  mutate("Cas_variant" = if_else(Cas_variant == "CAS9","Cas9",
+                                 if_else(Cas_variant == "KRAB","CRISPRi",
+                                         if_else(Cas_variant == "VP64","CRISPRa",""))))
+
+mageck_qc_sub$FACS_target <- factor(mageck_qc_sub$FACS_target,
+                                    levels = c("SELE","VCAM1","ICAM1","ROS","NO","Ca"))
+```
+
+```{r}
+mean_gini_index <- mageck_qc_sub %>%
+  summarise("mean_gini_index" = mean(GiniIndex),
+            "sd" = sd(GiniIndex))
+mean_gini_index
+```
+
+
+```{r}
+# Scatterplot
+
+## Set order of Cas9 variants
+mageck_qc_sub$Cas_variant <- factor(mageck_qc_sub$Cas_variant,
+                                    levels = c("Cas9","CRISPRi","CRISPRa"))
+
+panel_a <- ggplot(mageck_qc_sub,aes(GiniIndex,Zerocounts)) +
+  geom_point(aes(fill = Cas_variant),size = 3.5, colour = "black", pch = 21) +
+  scale_fill_brewer("Cas flavour",
+                    palette = "Dark2") +
+  labs(x = "Gini index",
+       y = "Zero counts") +
+  scale_fill_manual(global_legend_title,
+                      values = c("#EFC7B1","#F595A2","#C9CCA8"),
+                      labels = c("Cas9","CRISPRi","CRISPRa"))
+panel_a
+```
+
+
+## Panel B
+
+Panel B shows the read coverage per sgRNA
+
+```{r}
+raw_counts <- fread(here("./data/Endoscreen.all_samples_counts.annotated.tsv"))
+```
+
+```{r}
+raw_counts_sub <- raw_counts %>%
+  dplyr::select("sgRNA_ID","Locus","sgRNA_group",colnames(raw_counts)[colnames(raw_counts) %in% mageck_qc_sub$file_name])
+```
+
+
+```{r}
+raw_counts_long <- raw_counts_sub %>%
+  gather(sample,exp,-c(sgRNA_ID,Locus,sgRNA_group)) %>%
+  mutate("Cas_variant" = if_else(grepl("Cas|CAS|Cas9",sample),"Cas9",
+                                       if_else(grepl("KRAB|Krab|krab",sample),"CRISPRi",
+                                                     if_else(grepl("VP64|Vp64|vp64",sample),"CRISPRa","other")))) %>%
+  mutate("FACS_protein" = if_else(grepl("SELE|Sele|sele",sample),"SELE",
+                                  if_else(grepl("VCAM|Vcam|vcam",sample),"VCAM1",
+                                          if_else(grepl("ICAM|Icam|icam",sample),"ICAM1",
+                                                  if_else(grepl("ROS|Ros|ros",sample),"ROS",
+                                                          if_else(grepl("NO|No",sample),"NO",
+                                                                  if_else(grepl("Ca_|CA_",sample),"Ca","other")
+                                                                  )
+                                                          )
+                                                  )
+                                          )
+                                  )
+  )
+```
+
+
+
+```{r}
+raw_counts_long_summary <- raw_counts_long %>%
+  group_by(sgRNA_ID,Cas_variant,FACS_protein) %>%
+  summarise("mean_exp" = mean(exp),
+            "sd_exp" = sd(exp)) 
+```
+
+```{r}
+log_exp_df <- raw_counts_long %>%
+  mutate("log_exp" = log10(exp)) %>%
+  subset(FACS_protein != "other") %>%
+  mutate("FACS_protein" = if_else(FACS_protein == "SELE","E-Selectin",FACS_protein))
+
+## Set order of FACS
+log_exp_df$FACS_protein <- factor(log_exp_df$FACS_protein,
+                                  levels = c("E-Selectin","VCAM1","ICAM1",
+                                             "ROS","NO","Ca"))
+
+log_exp_df$FACS_protein <- factor(log_exp_df$FACS_protein,
+                                  labels = c("E-Selectin","VCAM1","ICAM1","ROS","NO", paste(expression("Ca"^paste(2,"+",sep="")),sep=""))
+                                  )
+
+panel_b <- ggplot(log_exp_df,aes(log_exp,fill= Cas_variant)) +
+  geom_density(alpha = gloabl_alpha) +
+  facet_wrap(~ FACS_protein, labeller = label_parsed) +
+  # geom_vline(xintercept = log10(500), linetype = 2) +
+  theme(legend.position = "right") + 
+  labs(x = "log10(Reads)",
+       y = "Density") + 
+  scale_fill_manual(global_legend_title,
+                      values = c("#EFC7B1","#F595A2","#C9CCA8"),
+                      labels = c("Cas9","CRISPRi","CRISPRa")) +
+  theme(legend.title = element_text(colour="black", 
+                                      face="bold"),
+        strip.background=element_rect(fill="grey20"),
+        strip.text = element_text(colour = 'white',
+                                  face = "bold")
+  ) 
+
+panel_b
+```
+
+```{r}
+mean_sgrna_reads <- log_exp_df %>%
+  summarise("mean_coverage" = mean(exp),
+            "sd_coverage" = sd(exp))
+mean_sgrna_reads
+```
+
+
+# Merge panels 
+
+```{r}
+supplementary_figure_5 <- panel_a / panel_b +  
+  plot_layout(ncol = 1,
+              guides = 'collect') +
+  plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 24))
+
+supplementary_figure_5
+
+save_plot(supplementary_figure_4,
+          filename = "../figures/Supplementary_Figure_5.tiff",
+          base_height = 8.5,
+          base_width = 11)
+
+```
+

@@ -1,0 +1,186 @@
+---
+title: "Analyse GSE131780"
+author: "Florian Wuennemann"
+date: "22/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(tidyverse)
+library(Seurat)
+library(presto)
+library(Nebulosa)
+library(cowplot)
+library(Biobase)
+library(GSEABase)
+library(fgsea)
+library(ggridges)
+library(pheatmap)
+library(scran)
+library(Hmisc)
+library(here)
+```
+
+Quick reanalysis of GEO entry GSE131780 for paper:
+Atheroprotective roles of smooth muscle cell phenotypic modulation and the TCF21 disease gene as revealed by single-cell analysis
+
+# Human data
+
+## Load data
+
+```{r}
+dge <- fread(here("./data/GSE131778_human_coronary_scRNAseq_wirka_et_al_GEO.txt.gz"))
+```
+
+
+```{r}
+gene_names <- dge$V1
+
+dge <- dge %>%
+  dplyr::select(-V1)
+dge_sparse <- as(as.matrix(dge), "sparseMatrix")
+rownames(dge_sparse) <- gene_names
+```
+
+## Seurat analysis
+
+## Create Seurat object
+
+```{r}
+seurat_object <- CreateSeuratObject(counts = dge_sparse)
+```
+
+
+## Calculate cell cycle stage
+
+```{r}
+s.genes <- cc.genes$s.genes
+g2m.genes <- cc.genes$g2m.genes
+```
+
+
+## Dimensional reduction
+
+```{r}
+seurat_object <- PercentageFeatureSet(seurat_object, pattern = "^MT-", col.name = "percent.mt")
+```
+
+```{r}
+seurat_object <- SCTransform(seurat_object, vars.to.regress = "percent.mt", verbose = TRUE)
+```
+
+
+```{r}
+seurat_object <- RunPCA(seurat_object, verbose = FALSE)
+ElbowPlot(seurat_object, 
+          ndims = 50)
+```
+
+
+```{r}
+seurat_object <- RunUMAP(seurat_object, dims = 1:20, verbose = FALSE)
+
+seurat_object <- FindNeighbors(seurat_object, dims = 1:20, verbose = FALSE)
+seurat_object <- FindClusters(seurat_object, verbose = FALSE)
+```
+
+```{r}
+### Assign cell cycle scores using Regev gene list
+seurat_object <- CellCycleScoring(object = seurat_object, 
+                                        assay = "RNA",
+                                        s.features = s.genes, 
+                                        g2m.features = g2m.genes,
+                                        set.ident = FALSE)
+```
+
+
+
+## Plot UMAP with metadata overlaid
+
+```{r}
+dimplot_clusters <- DimPlot(seurat_object, label = TRUE, pt.size = 2) + NoLegend()
+dimplot_clusters
+DimPlot(seurat_object, label = FALSE, group.by = "Phase")
+```
+
+
+## Find marker genes
+
+```{r}
+marker_genes <- wilcoxauc(seurat_object, seurat_object = "RNA")
+```
+
+```{r}
+marker_genes_filtered <- marker_genes %>%
+  subset(auc > 0.5) %>%
+  subset(padj < 0.05) %>%
+  arrange(desc(auc))
+```
+
+```{r}
+## Visualize top marker for each cell type
+top_marker <- marker_genes_filtered %>%
+  group_by(group) %>%
+  mutate("pct_diff" = pct_in - pct_out) %>%
+  top_n(2,wt = pct_diff)
+```
+
+
+```{r}
+DotPlot(seurat_object,
+        features = unique(top_marker$feature)) +
+  coord_flip()
+
+FeaturePlot(seurat_object,
+        features = top_marker$feature[1:6])
+```
+
+## Plot marker genes from paper (Suppl. table 5)
+
+```{r}
+marker_genes <- c("SEMA3G","EDN1",
+                  "ACKR1","PLVAP",
+                  "PECAM1")
+
+DotPlot(seurat_object,
+        features = marker_genes) +
+  coord_flip()
+
+```
+
+
+# Check Endoscreen candidate genes
+
+## Where are the endothelial cells?
+
+```{r}
+endothelial_marker_plot <- plot_density(seurat_object, c("PECAM1","CDH5"))
+endothelial_marker_plot
+
+joined_umap_plot <- dimplot_clusters | endothelial_marker_plot
+```
+
+
+```{r}
+candidate_genes <- c("PECAM1","CDH5","DHX38","MAT2A","ZNF664","CCDC92","CNNM2","FES","FURIN")
+```
+
+
+```{r}
+dotplot_candidate_genes <- DotPlot(seurat_object, 
+        features = candidate_genes, 
+        cols = c("blue", "red"), 
+        dot.scale = 8) + 
+    RotatedAxis()
+
+dotplot_candidate_genes
+```
+
+
+```{r}
+fes_furin_marker_plot <- plot_density(seurat_object, c("FES","FURIN"))
+all_candidates_marker_plot <- plot_density(seurat_object, candidate_genes)
+```

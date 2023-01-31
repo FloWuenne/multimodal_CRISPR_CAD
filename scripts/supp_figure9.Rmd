@@ -1,0 +1,115 @@
+---
+title: "Supplementary Figure 9"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(cowplot)
+library(ggridges)
+library(ggrepel)
+library(ggridges)
+library(patchwork)
+library(biomaRt)
+library(GenomicRanges)
+library(ggplotify)
+library(viridis)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(qusage)
+library(ggbeeswarm)
+library(ggsignif)
+library(here)
+
+source("./Figure_functions.R")
+
+theme_set(theme_cowplot_custom)
+
+crimson_pos_col <- "#dc143cff"
+crimson_neg_col <- "#eebfa6ff"
+dot_size <- 3
+dot_alpha <- 0.85
+
+ggsignif_text_size <- 5
+```
+
+
+
+# Load data
+
+```{r}
+growth <- read.table(here("./data/supp_figure9.growth_corrected.txt"), sep="\t", header=T)
+expression <- read.table(here("./data/supp_figure9.expression.txt"), sep="\t", header=T)
+```
+
+
+
+# Plot
+
+```{r}
+## Plot for cell growth
+growth$sgRNA <- factor(growth$sgRNA,
+                                              levels = c("Safe harbor","LPL_sg08237"))
+
+growth_plot <- ggplot(growth,aes(Antibiotic,cell_count, fill = sgRNA, group = sgRNA)) +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(0.95),
+               width = .5) +
+  stat_summary(fun = "mean", geom = "bar", position = position_dodge(0.95),
+               color = "black") +
+  geom_beeswarm(color = "black", pch = 21, size = dot_size,alpha = dot_alpha,
+             dodge.width = 0.95,
+             show.legend=FALSE) +
+  scale_fill_manual(values = c("white","darkgrey")) +
+  theme(legend.position = "none") +
+  labs(x = "",
+        y = "Cell count")
+
+growth_plot
+```
+
+
+```{r}
+## Plot for expression
+expression$sgRNA <- factor(expression$sgRNA,
+                           levels = c("Safe harbor","LPL_sg08237"))
+
+expression_plot <- ggplot(expression,aes(Gene,Expression, fill = sgRNA, group = sgRNA)) +
+  stat_summary(fun = mean,
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+               geom = "errorbar",
+               position = position_dodge(0.95),
+               width = .5) +
+  stat_summary(fun = "mean", geom = "bar", position = position_dodge(0.95),
+               color = "black") +
+  geom_beeswarm(color = "black", pch = 21, size = dot_size,alpha = dot_alpha,
+             dodge.width = 0.95,
+             show.legend=FALSE) +
+  scale_fill_manual(values = c("white","darkgrey")) +
+  labs(x = "",
+        y = "Relative expression levels")
+
+expression_plot
+```
+```{r}
+joined_plot <- (growth_plot | expression_plot) +
+  theme(plot.margin = margin(0.25, 1, 0.25, 0.25, "cm")) +
+  plot_annotation(tag_levels = "A") & 
+  theme(plot.tag = element_text(size = 24)) 
+
+joined_plot
+
+save_plot(joined_plot,
+          filename = here("./figures/Supplementary_Figure_9.tiff"),
+          base_height = 6.5,
+          base_width = 11)
+```
+

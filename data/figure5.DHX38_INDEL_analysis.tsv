@@ -1,0 +1,24 @@
+sgRNA_ID	fraction	replicate	day	indel_percentage
+sg10966	Top	r1	Day2	NA
+sg10966	Top	r1	Day4	50.4
+sg10966	Top	r1	Day7	50.3
+sg10966	Top	r2	"Day2
+"	16.7
+sg10966	Top	r2	Day4	45.2
+sg10966	Top	r2	Day7	46.5
+sg10966	Top	r3	"Day2
+"	22.8
+sg10966	Top	r3	Day4	38.1
+sg10966	Top	r3	Day7	35.9
+sg11664	Top	r1	"Day2
+"	11.3
+sg11664	Top	r1	Day4	35
+sg11664	Top	r1	Day7	34.3
+sg11664	Top	r2	"Day2
+"	11.7
+sg11664	Top	r2	Day4	40.7
+sg11664	Top	r2	Day7	33.8
+sg11664	Top	r3	"Day2
+"	11.3
+sg11664	Top	r3	Day4	44.8
+sg11664	Top	r3	Day7	39.5

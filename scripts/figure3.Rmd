@@ -1,0 +1,256 @@
+---
+title: "Figure4.Rmd"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(cowplot)
+library(ggridges)
+library(ggrepel)
+library(ggridges)
+library(RColorBrewer)
+library(superheat)
+library(viridis)
+library(pheatmap)
+library(ggplotify)
+library(patchwork)
+library(ggupset)
+library(here)
+
+source("./Figure_functions.R")
+
+theme_set(theme_cowplot_custom)
+```
+
+Scripts for processing sgRNA fastq files and running MAGECK:
+[mageck.quantify_sgRNA_fastq.sh](./mageck.quantify_sgRNA_fastq.sh)
+[mageck_MLE.sh](./mageck_MLE.sh)
+
+# Panel A 
+
+## Load MAGECK results table (Supplementary Table 4 content)
+
+```{r}
+final_mageck <- fread(file = here("./data/figure2.final_locus_results.tsv"))
+locus_annotations <- fread(file = here("./data/figure3.mageck_results_gene_annotation.tsv"))
+```
+
+```{r}
+# Add candidate genes to SNPs
+final_mageck <- left_join(final_mageck,locus_annotations, by = "Locus")
+final_mageck <- final_mageck %>%
+  mutate("Locus" = if_else(Locus == "2:216304770","rs541584060",Locus)) %>%
+  mutate("Locus" = if_else(is.na(genes),Locus,
+                           if_else(genes == "",Locus,paste(Locus,"_",genes,sep="")))) %>%
+  unique() 
+```
+
+
+## Plot Heatmap with FDR
+
+```{r}
+## Get all of the results with FDR <= 0.1
+final_results <- final_mageck %>%
+  subset(FDR <= 0.1 & sgRNA > 1 & grepl("rs|\\:",Locus)) %>%
+  dplyr::select(-wald_pvalue,-wald_fdr)
+
+final_mageck_sub <- final_mageck %>%
+  dplyr::select(Locus,Cas_variant,FACS_protein,FDR)
+```
+
+```{r}
+final_results_matrix <- final_mageck_sub %>%
+    mutate("Cas_variant" = if_else(Cas_variant == "KRAB","CRISPRi",
+                                 if_else(Cas_variant == "VP64","CRISPRa",Cas_variant))) %>%
+  mutate("FDR" = if_else(FDR == 0,0.001,FDR),
+         "assay" = paste(Cas_variant,FACS_protein,sep="_")) %>%
+  dplyr::select(-c(Cas_variant,FACS_protein)) %>%
+  spread(assay,FDR) %>%
+  subset(Locus %in% final_results$Locus) %>%
+  mutate("Locus" = if_else(grepl("\\:",Locus),paste("chr",Locus,sep=""),Locus))
+
+loci_names <- final_results_matrix$Locus
+final_results_matrix <- final_results_matrix[,-1]
+final_results_matrix <- as.matrix(final_results_matrix)
+rownames(final_results_matrix) <- loci_names
+
+final_results_matrix <- t(final_results_matrix)
+## Replace SELE with E-Selectin
+rownames(final_results_matrix) <- gsub("_Ca","_Ca2+",rownames(final_results_matrix))
+rownames(final_results_matrix) <- gsub("_"," ",rownames(final_results_matrix))
+rownames(final_results_matrix) <- gsub("SELE","E-Selectin",rownames(final_results_matrix))
+rownames(final_results_matrix) <- gsub("ICAM","ICAM1",rownames(final_results_matrix))
+rownames(final_results_matrix) <- gsub("VCAM","VCAM1",rownames(final_results_matrix))
+```
+
+```{r}
+## Define groups for heatmap
+Cas_variant <- rownames(final_results_matrix)
+row_annotations <- data.frame("Cas_variant" = Cas_variant)
+row_annotations <- row_annotations %>%
+  separate(Cas_variant,sep=" ",into = c("Cas_protein","FACS_phenotype")) %>%
+  mutate("Cas9 variant" = as.factor(Cas_protein)) %>%
+  mutate("FACS phenotype" = if_else(FACS_phenotype == "VCAM","VCAM1",
+                              if_else(FACS_phenotype == "ICAM","ICAM1",FACS_phenotype))) 
+row_annotations <- row_annotations[,3:4]
+
+rownames(row_annotations) <- rownames(final_results_matrix)
+
+pheno_colors <- c("#de3033ff","#63ba51ff","#974aa8ff",
+                  "#4ca1aeff","#686b6eff","#ee9c30ff")
+names(pheno_colors) <- c("E-Selectin","ICAM1","VCAM1","ROS","NO","Ca2+")
+my_colour = list(
+    "FACS phenotype" = pheno_colors,
+    "Cas9 variant" = c("Cas9" = "#EFC7B1","CRISPRi" = "#F595A2","CRISPRa" = "#C9CCA8")
+    )
+```
+
+
+```{r}
+library(gtable)
+library(grid)
+library(ComplexHeatmap)
+
+## Cas variants
+cas_variants <- row_annotations$`Cas9 variant`
+names(cas_variants) <- rownames(row_annotations)
+cas_variants <- factor(cas_variants,
+                       levels = c("Cas9","CRISPRi","CRISPRa"))
+cas_color <- my_colour$`Cas9 variant`
+
+# FACS phenotype
+facs_pheno <- row_annotations$`FACS phenotype`
+names(facs_pheno) <- rownames(row_annotations)
+facs_pheno <- factor(facs_pheno,
+                     levels = c("E-Selectin","VCAM1","ICAM1","ROS","NO","Ca2+"))
+facs_color <- my_colour$`FACS phenotype`
+
+## Legend parameters
+title_fontsize <- 16
+labels_fontsize <- 14
+legend_height <- 3.5
+
+ha = rowAnnotation(
+  "Cas9 variant" = cas_variants,
+  "FACS phenotype" = facs_pheno,
+  col = list("Cas9 variant" = cas_color,
+             "FACS phenotype" = facs_color),
+  annotation_legend_param = list(title_gp = gpar(fontsize = title_fontsize, fontface = "bold"),
+                                 labels_gp = gpar(fontsize = labels_fontsize),
+                                 legend_height = unit(legend_height, "cm"))
+  #annotation_name_rot = 45
+)
+
+pdf(here("./plots/Figure_3A.pdf"),
+    width = 18,
+    height = 10)
+results_heatmap <-  ComplexHeatmap::Heatmap(-log10(final_results_matrix),
+                              name = "-log10(FDR)",
+                              col = rev(magma(100)),
+                              column_names_rot = 45,
+                              right_annotation = ha,
+                              heatmap_legend_param = list(title_position = "topleft",
+                                                          title_gp = gpar(fontsize = title_fontsize, fontface = "bold"),
+                                                          labels_gp = gpar(fontsize = labels_fontsize),
+                                                          legend_height = unit(legend_height, "cm")))
+draw(results_heatmap, padding = unit(c(2, 20, 2, 2), "mm")) 
+dev.off()
+```
+
+# Panel B (for ALL validations)
+
+```{r}
+data_dir <- here("./data/MFI_stats_scaled/")
+mfi_files <- list.files(data_dir)
+
+all_mfi_files <- data.frame()
+
+for(file in mfi_files){
+  file_dir <- paste(data_dir,file,sep="")
+  current_file <- fread(file_dir)
+  colnames(current_file) <- c("FSC-A","FSC-H","FSC-W","SSC-A","SSC-H","SSC-W","PEA","Time")
+  
+  current_file$file <- file
+  current_file$file <- gsub("sg","sgRNA",current_file$file)
+  current_file <- current_file %>%
+    mutate("cas_variant" = if_else(grepl("Cas9",file),"Cas9",
+                                   if_else(grepl("Krab",file),"CRISPRi",
+                                           if_else(grepl("VP64",file),"CRISPRa","")))) %>%
+    separate(file, into = c("sg1","sg2","facs","cas","rep"), sep = "_") %>%
+    mutate("sgRNA" = paste(sg1,sg2,sep="_")) %>%
+    mutate("sgRNA_group" = if_else(grepl("Safe|SCR",sgRNA),"negative control sgRNA","candidate_sgRNA")) %>%
+    mutate("sample_group" = if_else(grepl("Safe|SCR",sgRNA),"Safe_harbor",sgRNA)) %>%
+    mutate("experiment" = if_else(file %in% c("sg_22747_ICAM_Krab_rep4.csv","Safe_001_ICAM_Krab_rep4.csv","Safe_002_ICAM_Krab_rep4.csv"),"CRISPRi-ICAM1",
+                             if_else(file %in% c("sg_02274_ICAM_Krab_rep4.csv","Safe_001_ICAM_Krab_rep4.csv","Safe_002_ICAM_Krab_rep4.csv"),"CRISPRi-ICAM1",
+                                     if_else(file %in% c("sg_02249_ROS_Cas9_rep4.csv","Safe_001_ROS_Cas9_rep4.csv","Safe_002_ROS_Cas9_rep4.csv"),"Cas9-ROS",
+                                             if_else(file %in% c("sg_10966_SELE_Cas9_rep3.csv","Safe_001_SELE_Cas9_rep3.csv","Safe_002_SELE_Cas9_rep3.csv"),"Cas9-E-Selectin",
+                                                     if_else(file %in% c("sg_11664_SELE_Cas9_rep3.csv","Safe_001_SELE_Cas9_rep3.csv","Safe_002_SELE_Cas9_rep3.csv"),"Cas9-E-Selectin",
+                                                             if_else(file %in% c("sg_25344_ICAM_VP64_rep3.csv","Safe_002_ICAM_VP64_rep3.csv","SCR_002_ICAM_VP64_rep3.csv"),"CRISPRa-ICAM1",
+                                                                     if_else(file %in% c("sg_06147_ICAM_VP64_rep3.csv","Safe_002_ICAM_VP64_rep3.csv","SCR_002_ICAM_VP64_rep3.csv"),"CRISPRa-ICAM1",
+                                                                             if_else(file %in% c("sg_06939_SELE_VP64_rep3.csv","Safe_002_SELE_VP64_rep3.csv","SCR_002_SELE_VP64_rep3.csv"),"CRISPRa-E-Selectin","test")
+                                                                             )
+                                                                     )
+                                                             )
+                                                     )
+                                             )
+                                     )
+                             )
+           )
+  
+  current_file$file <- file
+  all_mfi_files <- rbind(all_mfi_files,current_file)
+}
+```
+
+```{r}
+## add SNP and gene name to each sgRNA
+all_mfi_files$sample_group <- gsub("sgRNA_02249","sgRNA_02249:\nrs1078004:MAT2A",all_mfi_files$sample_group)
+all_mfi_files$sample_group <- gsub("sgRNA_06147","sgRNA_06147:\nrs12311848:ZNF664",all_mfi_files$sample_group)
+all_mfi_files$sample_group <- gsub("sgRNA_06939","sgRNA_06939:\nrs12906125:FES",all_mfi_files$sample_group)
+all_mfi_files$sample_group <- gsub("sgRNA_10966","sgRNA_10966:\nrs20746260:DHX38",all_mfi_files$sample_group)
+all_mfi_files$sample_group <- gsub("sgRNA_11664","sgRNA_11664:\nrs2240243:DHX38",all_mfi_files$sample_group)
+all_mfi_files$sample_group <- gsub("sgRNA_25344","sgRNA_25344:\nrs78260931:CNNM2",all_mfi_files$sample_group)
+```
+
+
+
+```{r}
+## Remove negative values and remove KRAB experiments
+all_mfi_files_clean <- all_mfi_files %>%
+  subset(cas_variant != "CRISPRi") %>%
+  subset(PEA > 0) %>%
+  mutate("PEA_log10" = if_else(PEA > 0, log10(PEA),PEA)) %>%
+  na.omit()
+
+all_mfi_plots <- ggplot(all_mfi_files_clean,aes(PEA_log10,sample_group)) +
+  facet_wrap(~experiment,
+             scales = "free",
+             nrow = 1,
+             ncol = 5) +
+  geom_density_ridges(aes(fill = sgRNA_group),
+                      quantile_lines = TRUE,
+                      quantiles = 2) +
+  scale_fill_brewer("Sample group",
+                    palette = "Set2") +
+  labs(x = "Fluorescence intensity (log10)",
+       y = "") +
+  theme(legend.position = "none") 
+  #annotate("text", x=150, y=3, label= "KS p-value < 2.2e-16") 
+
+all_mfi_plots
+```
+
+
+# Compile Figure
+
+```{r}
+save_plot(all_mfi_plots,
+          filename = here("./plots/Figure3.panel_B.eps"),
+          base_height = 6,
+          base_width = 18)
+```

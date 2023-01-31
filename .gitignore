@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+**.DS_Store
+data/figure1.sgRNA_distance_to_SNP.tsv
+data/multimodal_CRISPR_CAD.kallisto.gene_level.rds
+data/GSE131778.seurat_object.SCT.rds
+data/LDL_INV_EUR_HRC_1KGP3_others_ALL.meta.singlevar.results.chr_16.tsv
+data/CAD_META.chr16.tsv
+data/GSE131778_human_coronary_scRNAseq_wirka_et_al_GEO.txt.gz
+data/kallisto_quant_res/

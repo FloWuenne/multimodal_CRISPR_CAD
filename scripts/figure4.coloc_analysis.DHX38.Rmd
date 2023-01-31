@@ -1,0 +1,304 @@
+---
+title: "Endoscreen.coloc_analysis.HPR_DHX38"
+author: "Florian Wuennemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(vroom)
+library(tidyverse)
+library(plotly)
+library(coloc)
+library(here)
+```
+
+# Introduction
+
+In this markdown, we will first, look at the association statistics from two large-scale Genome-wide asssociation studies for LDL-C from [Graham et al, Nature 2022](https://www.nature.com/articles/s41467-022-33510-7) and CAD from [van der Harst and Verweij, Circ. Research, 2018](https://www.ahajournals.org/doi/full/10.1161/CIRCRESAHA.117.312086) respectively. We will use colocalization analysis to test, whether there are independent signals for LDL-C and CAD in the region around HP/R and DHX38.
+
+# Load and reformat data
+
+## Load LDL-C data
+
+First, we will load the GWAS results for the LDL-C GWAS. We will subset this dataset for snps around our region of interest. We will then use the rsIDs of the SNPs to subset the CAD GWAS results. Finally, we will merge the tables and plot the association statistics for each phenotype. 
+
+Locations for the HP/HPR and DHX38 locus with about 200k padding to each side on 
+GRCh37: chr16:71,887,706-72,347,088
+
+```{r}
+## Load LDL-C stats
+ldlc_gwas_chr16 <- vroom(here("./data/LDL_INV_EUR_HRC_1KGP3_others_ALL.meta.singlevar.results.chr_16.tsv"),
+                                 col_names = c("rsID",	"CHROM",	"POS_b37",	"REF",	"ALT",	"N",	"N_studies",	"POOLED_ALT_AF",	"EFFECT_SIZE",	"SE",	"pvalue_neg_log10",	"pvalue",	"pvalue_neg_log10_GC",	"pvalue_GC"))
+```
+
+```{r}
+## Subset ldl-c gwas stats for DHX38 region
+ldlc_gwas_chr16_sub <- ldlc_gwas_chr16 %>%
+  subset(POS_b37 >= 71887706 & POS_b37 <= 72347088)
+
+ldlc_rsids <- ldlc_gwas_chr16_sub$rsID
+ldlc_rsids <- ldlc_rsids[!is.na(ldlc_rsids)]
+```
+
+## Load CAD data
+
+```{r}
+## Load CAD stats
+cad <- vroom(here("./data/CAD_META.chr16.tsv"), 
+                 col_names = c("MarkerName",      "Allele1", "Allele2", "Freq1",   "FreqSE",  "MinFreq", "MaxFreq", "Effect",  "StdErr",  "pval", "Direction",       "HetISq",  "HetChiSq",        "HetDf",   "HetPVal", "oldID",   "CHR",     "BP"))
+
+cad <- cad %>%
+  separate(MarkerName, into = c("CHROM","rest"),sep = ":") %>%
+  separate(rest,into = c("POS_b37","REF","ALT"), sep="_")
+```
+
+```{r}
+cad_sub <- cad %>%
+  subset(oldID %in% ldlc_rsids)
+```
+
+## Merge GWAS stats
+
+Now we will merge the summary statistics, based on their rsID overlap. We could do the same with positions, because both summary stats are actually on the same genome build (GRCh37), but this doesnt change the results much.
+
+
+```{r}
+## combine stats from both GWAS
+ldlc_merge <- ldlc_gwas_chr16_sub %>%
+  select(rsID,CHROM,POS_b37,REF,ALT,pvalue,EFFECT_SIZE,SE)
+
+cad_merge <- cad_sub %>%
+  mutate("rsID" = oldID,
+         "pvalue" = pval) %>%
+  select(rsID,CHROM,POS_b37,REF,ALT,pvalue,Effect,StdErr)
+
+merged_gwas <- left_join(cad_merge,ldlc_merge, by ="rsID",
+                         suffix = c("_CAD","_LDLC"))
+
+## find and exclude multi-allelic SNPs from LDL-c GWAS
+duplicate_IDs <- merged_gwas %>%
+  group_by(rsID) %>%
+  tally() %>%
+  arrange(desc(n)) %>%
+  subset(n > 1)
+
+duplicate_IDs_res <- merged_gwas %>%
+  subset(rsID %in% duplicate_IDs$rsID)
+
+merged_gwas <- merged_gwas %>%
+  subset(!rsID %in% duplicate_IDs_res$rsID)
+
+merged_gwas_long <- merged_gwas %>%
+  pivot_longer(cols = starts_with("pvalue"),
+               values_to = "pvalue",
+               names_to = "group")
+
+merged_gwas_long$group <- gsub("pvalue_","",merged_gwas_long$group)
+
+merged_gwas_long_effect <- merged_gwas %>%
+  pivot_longer(cols = c("Effect","EFFECT_SIZE"),
+               values_to = "effect",
+               names_to = "group")
+
+merged_gwas_long_effect$group <- gsub("EFFECT_size","LDLC",merged_gwas_long_effect$group)
+merged_gwas_long_effect$group <- gsub("Effect","CAD",merged_gwas_long_effect$group)
+```
+
+
+## Find top hits
+
+What is the top hit for each phenotype (lowest p-value).
+
+```{r}
+## Let's find the top SNP for each GWAS
+top_ldl <- merged_gwas_long %>%
+  subset(group == "LDLC") %>%
+  arrange(pvalue) %>%
+  top_n(-1)
+top_ldl
+
+top_cad <- merged_gwas_long %>%
+  subset(group == "CAD") %>%
+  arrange(pvalue) %>%
+  top_n(-1)
+top_cad
+```
+
+# Plot assoc stats
+
+Let's do a quick plot of the association region.
+
+```{r}
+merged_gwas_long$POS_b37_LDLC <- as.numeric(merged_gwas_long$POS_b37_LDLC)
+
+assocplot <- ggplot(merged_gwas_long,aes(POS_b37_LDLC,-log10(pvalue))) +
+  geom_point(aes(color = group)) +
+  facet_wrap(~group,
+             scales = "free") +
+  labs(title = "p-values")
+
+assocplot
+
+## plot effect sizes instead
+effect_plot <- ggplot(merged_gwas_long_effect,aes(POS_b37_LDLC,effect)) +
+  geom_point(aes(color = group)) +
+  facet_wrap(~group,
+             scales = "free") +
+  labs(title = "Effect-sizes",
+       y = "Effect size")
+
+effect_plot
+
+#ggplotly(assocplot)
+```
+
+Let's zoom in a little closer to the actual region of the gene models. I didn't put gene models in this plot, as this would have been a lot more work and I don't think we will include this plots in the manuscript or the review. Top variants are highlighted by black dots.
+
+
+```{r}
+## Zoom in on HP and DHX38
+locus <- merged_gwas_long %>%
+  subset(POS_b37_CAD >= 72085737 & POS_b37_CAD <= 72147531)
+
+assocplot_zoom <- ggplot(locus,aes(POS_b37_LDLC,-log10(pvalue))) +
+  geom_point(aes(color = group)) +
+  geom_point(data = top_ldl, color = "black", size = 3) +
+  geom_point(data = top_cad, color = "black", size = 3) +
+  facet_wrap(~group,
+             scales = "free")
+
+assocplot_zoom
+```
+
+# Perform Coloc analysis
+
+## Full 450kb window
+
+Now let's actually perform proper colocalization analysis to see whether the signal for LDL-C and CAD are independent or not.
+
+First, we need to properly format our input datasets.
+
+```{r}
+## LDLC
+ldlc_coloc <- ldlc_gwas_chr16_sub %>%
+  subset(rsID %in% merged_gwas$rsID) %>%
+  unique()
+
+ldlc_coloc <- ldlc_coloc %>%
+  mutate("beta" = EFFECT_SIZE,
+         "varbeta" = SE^2,
+         "position" = POS_b37,
+         "snp" = paste("snp",1:nrow(ldlc_coloc),sep="_"),
+         "N" = N,
+         "MAF" = POOLED_ALT_AF
+  )
+
+ldlc_beta <- as.list(ldlc_coloc)
+ldlc_beta$type <- "quant"
+
+ldlc_beta <- ldlc_beta[c("beta","varbeta","snp","position","type","N","MAF","rsID")]
+check_dataset(ldlc_beta)
+str(ldlc_beta)
+
+## CAD
+cad_coloc <- cad_sub %>%
+  subset(oldID %in% merged_gwas$rsID)%>%
+  unique()
+  
+cad_coloc <- cad_coloc %>% 
+  mutate("beta" = Effect,
+         "varbeta" = StdErr^2,
+         "position" = POS_b37,
+         "snp" = paste("snp",1:nrow(cad_coloc),sep="_")
+  )
+
+cad_beta <- as.list(cad_coloc)
+cad_beta$type <- "cc"
+
+cad_beta <- cad_beta[c("beta","varbeta","snp","position","type","oldID")]
+check_dataset(cad_beta)
+str(cad_beta)
+
+missing_snps <- setdiff(ldlc_beta$rsID,cad_beta$oldID)
+```
+
+Now that our data is properly formatted, let's do the actual testing with 1294 variants in both traits.
+
+```{r}
+## Format association statistics according to coloc requirements
+## We are going to run Approximate Bayes Factor colocalisation analysis
+
+my.res <- coloc.abf(dataset1 = ldlc_beta,
+                    dataset2 = cad_beta)
+```
+
+```{r}
+print(my.res)
+```
+
+
+```{r}
+## Make sure posterior probabilities sum up to 1
+sum(my.res$summary[2:6])
+```
+
+
+## Smaller window, just around HP and DHX38
+
+
+```{r}
+## narrow region : chr16:72,079,478-72,149,501
+sub_merged_gwas <- merged_gwas %>%
+  subset(POS_b37_CAD >= 72079478 & POS_b37_CAD <= 72149501)
+
+## LDLC
+ldlc_coloc <- ldlc_gwas_chr16_sub %>%
+  subset(rsID %in% sub_merged_gwas$rsID) %>%
+  unique()
+
+ldlc_coloc <- ldlc_coloc %>%
+  mutate("beta" = EFFECT_SIZE,
+         "varbeta" = SE^2,
+         "position" = POS_b37,
+         "snp" = paste("snp",1:nrow(ldlc_coloc),sep="_"),
+         "N" = N,
+         "MAF" = POOLED_ALT_AF
+  )
+
+ldlc_beta <- as.list(ldlc_coloc)
+ldlc_beta$type <- "quant"
+
+ldlc_beta <- ldlc_beta[c("beta","varbeta","snp","position","type","N","MAF","rsID")]
+check_dataset(ldlc_beta)
+str(ldlc_beta)
+
+## CAD
+cad_coloc <- cad_sub %>%
+  subset(oldID %in% sub_merged_gwas$rsID)%>%
+  unique()
+  
+cad_coloc <- cad_coloc %>% 
+  mutate("beta" = Effect,
+         "varbeta" = StdErr^2,
+         "position" = POS_b37,
+         "snp" = paste("snp",1:nrow(cad_coloc),sep="_")
+  )
+
+cad_beta <- as.list(cad_coloc)
+cad_beta$type <- "cc"
+
+cad_beta <- cad_beta[c("beta","varbeta","snp","position","type","oldID")]
+check_dataset(cad_beta)
+str(cad_beta)
+
+missing_snps <- setdiff(ldlc_beta$rsID,cad_beta$oldID)
+```
+```{r}
+## Format association statistics according to coloc requirements
+## We are going to run Approximate Bayes Factor colocalisation analysis
+
+my.res_narrow <- coloc.abf(dataset1 = ldlc_beta,
+                    dataset2 = cad_beta)
+```

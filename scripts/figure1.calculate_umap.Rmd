@@ -1,0 +1,139 @@
+---
+title: "clean_deseq_umap"
+author: "Florian Wuennemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(DESeq2)
+#library(CRISPhieRmix)
+library(RColorBrewer)
+library(pheatmap)
+library(umap)
+library(plotly)
+library(ggridges)
+library(cowplot)
+library(here)
+
+theme_set(theme_cowplot())
+```
+
+# Load data
+
+```{r}
+## sgRNA count matrix
+all_samples <- fread(here("./data/sgRNA_count_matrix.tsv"))
+## Metdata for samples
+all_samples_metadata<- fread(here("./data/sgRNA_metadata"))
+```
+
+## Normalization
+
+```{r}
+## Normalization with both plasmids in matrix
+sub_count_matrix <- all_samples[,3:ncol(all_samples)]
+  
+rownames(all_samples_metadata) <- paste(all_samples_metadata$filename_prefix,"_R1.fastq.gz",sep="")
+
+this_analysis_deseq <- DESeq2::DESeqDataSetFromMatrix(countData =
+                                                      sub_count_matrix, 
+                                                      colData = all_samples_metadata, 
+                                                      design = ~ condition)
+
+this_analysis_deseq <- estimateSizeFactors(this_analysis_deseq)
+this_analysis_deseq <- estimateDispersions(this_analysis_deseq)
+```
+
+```{r}
+## QC on DESeq object
+plotDispEsts(this_analysis_deseq)
+size_factors <- sizeFactors(this_analysis_deseq)
+size_factors_df <- data.frame("sample" = names(size_factors),
+                              "SF" = size_factors)
+size_factors_df <- size_factors_df %>%
+  arrange(desc(SF))
+```
+
+
+```{r}
+vsd <- vst(this_analysis_deseq, blind=TRUE, fitType='parametric')
+norm_expression <- as.data.frame(assay(vsd))
+```
+
+```{r}
+norm_expression$sgRNA <- all_samples$sgRNA_ID
+norm_expression$Locus <- all_samples$Locus
+```
+
+##  PCA and UMAP 
+
+Further renormalize samples to their respective plasmid control, as the amount of reads per sgRNA is determined by the starting amount. This way, Cas9 and KRAB are sort of comparable to VP64. Without this normalization, there is a large batch effect due to starting plasmid between the two condition.
+
+```{r}
+krab_samples <- colnames(norm_expression)[grepl("Krab|KRAB|CAS|Cas",colnames(norm_expression))]
+krab_samples <- krab_samples[1:(length(krab_samples)-1)]
+vp64_samples <- colnames(norm_expression)[grepl("VP64|Vp64",colnames(norm_expression))]
+vp64_samples <- vp64_samples[1:(length(vp64_samples)-1)]
+
+merged_norm_counts_assay_renorm <- norm_expression %>%
+  mutate_at(vars(krab_samples), funs(. / KRAB_plasmid_control_R1.fastq.gz)) %>%
+  mutate_at(vars(vp64_samples), funs(. / VP64_plasmid_control_R1.fastq.gz)) %>%
+  select(-c(KRAB_plasmid_control_R1.fastq.gz,VP64_plasmid_control_R1.fastq.gz))
+```
+
+```{r}
+library(factoextra)
+
+## manual PCA to extract loadings
+merged_norm_counts_assay_renorm_exp <- merged_norm_counts_assay_renorm %>%
+  select(-c(sgRNA,Locus))
+
+merged_norm_counts_assay_renorm_exp <- as.matrix(merged_norm_counts_assay_renorm_exp)
+merged_norm_counts_assay_renorm_exp_zscore <- t(scale(t(merged_norm_counts_assay_renorm_exp)))
+
+
+## Only use top X hits
+ntop <- 805
+rv <- rowVars(merged_norm_counts_assay_renorm_exp)
+select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, 
+            length(rv)))]
+pca_norm <- prcomp(t(merged_norm_counts_assay_renorm_exp[select, ]))
+pca_mappings <- as.data.frame(pca_norm$x)
+```
+
+
+```{r}
+this_analysis_meta <- all_samples_metadata %>%
+  mutate("virus_batch" = as.factor(virus_batch)) %>%
+  mutate("sequencing_batch" = as.factor(sequencing_batch)) %>%
+  mutate("sequencing_lane" = as.factor(sequencing_lane)) %>%
+  select(FACS_group,FACS_target,Cas_variant,replicate,filename_prefix,virus_batch,sequencing_batch,sequencing_lane) %>%
+  mutate("condition" = if_else(FACS_group == "Top","1","0")) %>%
+  mutate("condition" = as.factor(condition)) %>%
+  mutate("sample_pair" = as.factor(replicate)) %>%
+  subset(virus_batch != "plasmid")
+
+pca_mappings$Cas_variant <- this_analysis_meta$Cas_variant
+pca_mappings$filename_prefix <- this_analysis_meta$filename_prefix
+```
+
+```{r}
+custom.config = umap.defaults
+custom.config$random_state = 42
+
+## test UMAP on PCA data
+#umap <- umap(pca_mappings[,1:4], custom.config)
+umap <- umap(pca_mappings[,1:3], custom.config)
+umap_mappings <- as.data.frame(umap$layout)
+colnames(umap_mappings) <- c("UMAP1","UMAP2")
+
+## Add metadata
+umap_mappings$Cas_variant <- this_analysis_meta$Cas_variant
+umap_mappings$filename_prefix <- this_analysis_meta$filename_prefix
+umap_mappings$FACS_group <- this_analysis_meta$FACS_group
+```
+

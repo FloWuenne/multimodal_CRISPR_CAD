@@ -1,0 +1,9 @@
+Samples	baseline	FACS_Top
+HI.1.1.NGS_merged.Cas_NO_Bottom_128_R1.fastq.gz	1	0
+HI.1.1.NGS_merged.Cas_NO_Top_115_R1.fastq.gz	1	1
+HI.1.1.NGS_merged.Cas_NO_Top_127_R1.fastq.gz	1	1
+HI.4934.007.NGS-Lib-Rev--3.Cas_Top_NO_47_R1.fastq.gz	1	1
+HI.4934.007.NGS-Lib-Rev--4.Cas_bottom_NO_48_R1.fastq.gz	1	0
+HI.5102.006.NGS-Lib-Rev--6.Cas_NO_Bottom_116_R1.fastq.gz	1	0
+HI.5102.008.NGS-Lib-Rev--5.Cas_NO_Top_131_R1.fastq.gz	1	1
+HI.5102.008.NGS-Lib-Rev--6.Cas_NO_Bottom_132_R1.fastq.gz	1	0

@@ -1,0 +1,227 @@
+---
+title: "Figure 1"
+author: "Florian Wünnemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(data.table)
+library(cowplot)
+library(ggforce)
+library(patchwork)
+library(ggExtra)
+library(here)
+
+source("./Figure_functions.R")
+
+theme_set(theme_cowplot_custom)
+```
+
+# Purpose
+
+This markdown will produce the plots for Figure 1 of the manuscript.
+
+# Panel A
+
+Manual graphic.
+
+# Panel B
+
+```{r}
+sgRNA_info <- fread(here("./data/figure1.Supplementary_Table_2 _CAD_loci.tsv"),
+                    header= TRUE)
+
+## Sum up sgRNA count by Locus
+cad_sgrna_nr <- sgRNA_info %>%
+  dplyr::select(sgRNA_ID,Locus) %>%
+  
+  unique() %>%
+  group_by(Locus) %>%
+  tally()
+
+## Plot number of sgRNA per SNP
+figure_1b <- ggplot(cad_sgrna_nr,aes(as.factor(n))) +
+  geom_histogram(stat = "count", fill = "grey20") +
+  labs(x = "Number of sgRNA per targeted variant",
+       y = "Count")
+
+figure_1b
+```
+
+
+# Panel C
+
+```{r}
+sgRNA_snp_annotation <- fread(here("./data/figure1.sgRNA_distance_to_SNP.tsv"))
+
+missing_SNPs <- setdiff(cad_sgrna_nr$Locus,unique(sgRNA_snp_annotation$Locus))
+
+sgRNA_snp_annotation <- sgRNA_snp_annotation %>%
+  mutate("guide_chr" = paste("chr",SNP2_Chr,sep ="")) %>%
+  dplyr::select(Locus,SNP2_Chr,SNP2_Pos,sgRNA_ID,absolute_distance) %>%
+  unique()
+
+length(unique(sgRNA_snp_annotation$Locus))
+
+## Print mean distance of sgRNA to cut site
+mean_distance <- mean(sgRNA_snp_annotation$absolute_distance)
+mean_distance
+```
+
+
+```{r}
+figure_1c <- ggplot(sgRNA_snp_annotation,aes(absolute_distance)) +
+  geom_density(alpha = 1,  fill = "darkgrey", colour = "black") +
+  labs(x = "Absolute distance from target SNP (bp)",
+       y = "Density") +
+  geom_vline(xintercept = mean_distance,linetype = 2, size = 1.5 , color = "black")
+figure_1c
+```
+
+# Panel D
+
+Saturation of SNPs panel
+
+```{r}
+saturation_info <- fread(file= here("./data/figure1.saturation_analysis.tsv"))
+
+## number of unique sentinel SNP IDs
+nr_sentinels_saturation <- length(unique(saturation_info$sentinel_ID))
+
+saturation_info_stats <- saturation_info %>%
+  dplyr::select(sentinel_ID,LocusID,proxies_designed,proxies_tested) %>%
+  mutate("proxies_not_tested" = proxies_designed - proxies_tested) %>%
+  dplyr::select(-proxies_designed) %>%
+  gather(category,value,proxies_tested:proxies_not_tested,-c(sentinel_ID,LocusID)) %>%
+  group_by(LocusID) %>%
+  mutate(fraction = value / sum(value))
+
+saturation_info_stats_order <- saturation_info_stats %>%
+  subset(category == "proxies_tested") %>%
+  arrange(desc(fraction))
+
+saturation_info_stats$LocusID <- factor(saturation_info_stats$LocusID,levels = unique(saturation_info_stats_order$LocusID))
+
+mean_variant_fraction <- saturation_info_stats %>%
+  group_by(category) %>%
+  summarise("mean" = mean(fraction))
+
+mean_variant_fraction_tested <- subset(mean_variant_fraction,category == "proxies_tested")$mean
+```
+
+```{r}
+figure_1d <- ggplot(saturation_info_stats,aes(LocusID,fraction,fill = category, color = category)) +
+  geom_bar(stat = "identity",position = "fill", width=1, color = NA) +
+  coord_flip() +
+  scale_fill_manual("Is proxy targeted in screen?",
+                    values = c("darkgrey","forestgreen"),
+                    labels = c("No","Yes")) +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.line.x = element_blank(),
+        legend.position = "top") +
+  labs(y = "Fraction of SNPs in LD block",
+       x = "Sentinel LD blocks (83 loci)") +
+  geom_hline(yintercept = mean_variant_fraction_tested, linetype = 2) 
+
+figure_1d
+
+
+figure_1d_png <- ggplot(saturation_info_stats,aes(LocusID,fraction,fill = category, color = category)) +
+  geom_bar(stat = "identity",position = "fill", width=1, color = NA) +
+  coord_flip() +
+  scale_fill_manual("Is proxy targeted in screen?",
+                    values = c("darkgrey","forestgreen"),
+                    labels = c("No","Yes")) +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.line.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.position = "none") +
+  labs(y = "",
+       x = "") +
+  geom_hline(yintercept = mean_variant_fraction_tested, linetype = 2) 
+```
+
+# Panel E
+
+Annotation categories for sgRNA and SNPs
+
+```{r}
+## Read VEP annotation results
+vep_screen_variants_VEP_withrs <- fread(here("./data/figure1.variants_with_rsIDS.VEP_results.txt"))
+vep_screen_variants_VEP_nors <- fread(here("./data/figure1.variants_no_rsIDS.VEP_results.txt"))
+
+vep_variants <- rbind(vep_screen_variants_VEP_withrs,vep_screen_variants_VEP_nors)
+vep_variants_stats <- vep_variants %>%
+  subset(!grepl("PATCH",Location)) %>%
+  group_by(Consequence) %>%
+  tally() %>%
+  arrange(desc(n))
+
+vep_variants_stats$Consequence <- gsub("_"," ",vep_variants_stats$Consequence)
+vep_variants_stats$Consequence <- factor(vep_variants_stats$Consequence,
+                                         levels = vep_variants_stats$Consequence)
+
+vep_variants_stats <- vep_variants_stats %>%
+  mutate("fraction" = n / sum(n) * 100)
+
+total_variants <- sum(vep_variants_stats$n)
+
+figure_1e <- ggplot(vep_variants_stats,aes(Consequence,n)) +
+  geom_bar(stat = "identity", fill = "grey20") +
+  coord_flip() +
+  labs(x = "Variant annotation",
+       y = "Number of Variants")
+
+figure_1e
+```
+
+
+
+# Assemble final figure
+
+
+```{r}
+Figure_1_final_bd <- cowplot::plot_grid(nrow = 2,
+                   ncol = 1,
+                   figure_1b,
+                   figure_1d,
+                   scale = 0.9
+                   # labels = c('C', 'D'),
+                   # label_size = 28
+                   )
+
+Figure_1_final_ce <- cowplot::plot_grid(nrow = 2,
+                   ncol = 1,
+                   figure_1c,
+                   figure_1e,
+                   scale = 0.9
+                   # labels = c('E', 'F'),
+                   # label_size = 28
+                   )
+
+Figure_1 <-  cowplot::plot_grid(nrow = 1,
+                   ncol = 2,
+                   Figure_1_final_bd,
+                   Figure_1_final_ce,
+                   label_size = 20)
+
+Figure_1
+
+plot_width <- 11.326
+plot_height <- 7
+
+
+## Save plot
+save_plot(Figure_1,
+          filename = here("./plots/Figure1.panels.eps"),
+          base_height = plot_height,
+          base_width = plot_width)
+```
