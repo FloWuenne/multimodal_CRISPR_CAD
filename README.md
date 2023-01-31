@@ -1,6 +1,6 @@
 # Multimodal CRISPR CAD
 
-![cover_image](./img/cover_img.png)
+![cover_image](./img/cover_image.png)
 
 This repository contains all the code to reproduce results and create figures for the manuscript:
 
